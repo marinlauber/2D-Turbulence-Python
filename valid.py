@@ -11,8 +11,6 @@ import time as t
 import numpy as np
 from fluid import fluid
 
-import matplotlib.pyplot as plt
-
 if __name__=="__main__":
 
     # build fluid and solver

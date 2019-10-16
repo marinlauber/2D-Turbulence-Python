@@ -98,7 +98,7 @@ class fluid(object):
 
     def get_u(self):
         """
-        Spectral differentitation to get:
+        Spectral differentiation to get:
             u = d/dy \psi
         """
         self.u = np.fft.irfft2(self.ky[:,np.newaxis]*self.psih)
@@ -106,7 +106,7 @@ class fluid(object):
 
     def get_v(self):
         """
-        Spectral differentitation to get:
+        Spectral differentiation to get:
             v = -d/dx \psi
         """
         self.v = -np.fft.irfft2(self.kx[:self.nk]*self.psih)
