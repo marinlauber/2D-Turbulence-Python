@@ -1,1 +1,2 @@
+# Pseudo Spectral Collocation Method
 
