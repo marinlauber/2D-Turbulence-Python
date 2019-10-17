@@ -226,6 +226,25 @@ class fluid(object):
         plt.quiver(self.x, self.y, self.u, self.v)
         plt.xlabel("x"); plt.ylabel("y")
         plt.show()
+
+    def run_live(self, stop):
+
+        iterr = 0
+
+        # loop to solve
+        while(self.time<=stop):
+
+            self.wh_to_w
+            plt.contourf(self.x, self.y, self.w, cmap="RdBu")
+            plt.pause(1e-8)
+
+            #  update using RK
+            self.update()
+            iterr += 1
+
+            print("Iteration \t %d, time \t %f, time remaining \t %f" %(iterr, self.time, stop-self.time))
+
+        plt.show()
         
 
 # if __name__=="__main__":
