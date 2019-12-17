@@ -9,18 +9,16 @@ __email__  = "M.Lauber@soton.ac.uk"
 
 import numpy as np
 import matplotlib.pyplot as plt
-# import pyfftw
 
 class Fluid(object):
 
-    def __init__(self, nx, ny, Re, dt=0.0001, pad=3./2.):
+    def __init__(self, nx, ny, Re, dt=0.0001):
 
         # input data
         self.nx = nx
         self.ny = ny; self.nk = self.ny//2+1
         self.Re = Re; self.ReI = 1./self.Re
         self.dt = dt
-        self.pad = pad
         self.time = 0.
         self.uptodate = False
         self.filterfac = 23.6
@@ -41,8 +39,6 @@ class Fluid(object):
         self.u = np.empty((self.nx,self.ny))
         self.v = np.empty((self.nx,self.ny))
         self.w = np.empty((self.nx,self.ny))
-        self.w0 = np.empty((self.nx,self.nk))
-        self.dwdt = np.empty((self.nx,self.ny))
 
     
     def init_field(self, field="Taylor-Green", t=0.0, kappa=2., delta=0.005, sigma= 15./np.pi):
@@ -100,49 +96,34 @@ class Fluid(object):
         
         # vorticity in physical space
         self.w = np.fft.irfft2(wh)
-        self.w = self.w/(0.5*abs(self.w).max())-1.
+        # self.w = self.w/(0.5*abs(self.w).max())-1.
 
 
-    def init_solver(self):
+    def init_solver(self, scheme="PADE-6"):
 
-        try:    
-            self.k2
-        except AttributeError:
-            self.k2 = self.kx[:self.nk]**2 + self.ky[:,np.newaxis]**2
-            self.fk = self.k2 != 0.0
+         # initialise array required for solving
+        self.w0 = np.empty((self.nx,self.ny), dtype=np.float64)
+        self.psi = np.zeros((self.nx,self.ny), dtype=np.float64)
+        self.dwdt = np.zeros((self.nx,self.ny), dtype=np.float64)
 
-        # initialise array required for solving
-        self.wh = np.zeros((self.nx,self.nk), dtype=np.complex128)
-        self.psih = np.zeros((self.nx,self.nk), dtype=np.complex128)
-        self.dwhdt = np.zeros((self.nx,self.nk), dtype=np.complex128)
-
+        # pade schemes coefficients
+        if scheme=="CDS-2":
+            self.alpha = 0.; self.beta  = 1./(2.*self.dx); self.gamma = 0.
+        if scheme == "CDS-4":
+            self.alpha = 0.; self.beta  = 2./(3.*self.dx); self.gamma = -1./(12.*self.dx)
+        if scheme == "PADE-4":
+            self.alpha = 0.25; self.beta  = 3./(4.*self.dx); self.gamma = 0.
+        if scheme == "PADE-6":
+            self.alpha = 1./3.; self.beta  = 14./(18.*self.dx); self.gamma = 1./(36.*self.dx)
+        
         # utils
-        self.mx = int(self.pad * self.nx)
-        self.my = int(self.pad * self.nk)
-        self.padder = np.ones(self.mx, dtype=bool)
-        self.padder[int(self.nx/2):int(self.nx*(self.pad-0.5)):] = False
+        self.k2 = self.kx[:self.nk]**2 + self.ky[:,np.newaxis]**2
+        self.fk = self.k2 != 0.0
 
-        # populate those arrays
+        # populate array
+        self._get_psi()
         self.w0 = self.w
 
-        # ṣpectral filter
-        try:
-            self.fltr
-        except AttributeError:
-            self._init_filter()
-
-
-    def w_to_wh(self):
-        self.wh = np.fft.rfft2(self.w, axes=(-2,-1))
-        
-
-    def wh_to_w(self):
-        self.w = np.fft.irfft2(self.wh, axes=(-2,-1))
-
-
-    def dwhdt_to_dwdt(self):
-        self.dwdt = np.fft.irfft2(self.dwhdt, axes=(-2,-1))
-        
 
     def _init_filter(self):
         cphi = 0.65*np.max(self.kx)
@@ -157,15 +138,14 @@ class Fluid(object):
         Spectral differentiation to get:
             u = d/dy \psi
         """
-        self.u = np.fft.irfft2(self.ky[:,np.newaxis]*self.psih)
-
+        self.u = np.fft.irfft2(self.ky[:,np.newaxis]*np.fft.rfft2(self.psi))
 
     def get_v(self):
         """
         Spectral differentiation to get:
             v = -d/dx \psi
         """
-        self.v = -np.fft.irfft2(self.kx[:self.nk]*self.psih)
+        self.v = -np.fft.irfft2(self.kx[:self.nk]*np.fft.rfft2(self.psi))
 
 
     def _cfl_limit(self):
@@ -179,9 +159,6 @@ class Fluid(object):
         Dc = np.max(np.pi*((1.+abs(self.u))/self.dx + (1.+abs(self.v))/self.dy))
         Dmu = np.max(np.pi**2*(self.dx**(-2) + self.dy**(-2)))
         self.dt = np.sqrt(3.) / (Dc + Dmu)
-        # self.dt = 0.005 * np.min(np.hstack((self.dx, self.dy))) /\
-        #  np.max(np.hstack((self.u, self.v)))
-        # self.dt = np.minimum(self.dt, 0.0001)
 
 
     def update(self, s=3):
@@ -196,9 +173,9 @@ class Fluid(object):
 
         for k in range(s, 0, -1):
             # invert Poisson equation for the stream function (changes to k-space)
-            self._get_psih()
+            self._get_psi()
 
-            # get convective forces (resets dwhdt)
+            # get convective forces (resets dwdt)
             self._add_convection()
 
             # add diffusion (changes to C-space)
@@ -211,25 +188,69 @@ class Fluid(object):
         self._cfl_limit()
     
 
-    def _get_psih(self):
+    def _get_psi(self):
         """
         Spectral stream-function from spectral vorticity
             hat{\psi} = \hat{\omega} / (k_x^2 + k_y^2)
         """
-        self.w_to_wh()
-        self.psih[self.fk] = self.wh[self.fk] / self.k2[self.fk]
+        wh = np.fft.rfft2(self.w, axes=(-2, -1))
+        psih = np.zeros_like(wh)
+        psih[self.fk] = wh[self.fk] / self.k2[self.fk]
+        self.psi = np.fft.irfft2(psih, axes=(-2, -1))
+
+
+    def _ddx(self, u, dx): return self._pade(u, dx)
+    
+
+    def _ddy(self, u, dy): return self._pade(u.T, dy).T
+
+
+    def _pade(self, a, dx):
+        """
+        Second, fourth- and sixth-order compact scheme for first derivative of periodic field a:
+        
+        Paramaters:
+            a     : array of float
+                    values of the fiels at the grid points the array is assumed periodic
+                    such that the periodic point is NOT included
+            dx    : float
+                    grid spacing, must be constant
+        Output:
+            diff : array of float
+                   first derivative of the field
+        """
+    
+        # temp array
+        b = np.empty_like(a)
+        
+        # compact scheme on interior points
+        b[:, 2:-2] = self.beta * (a[:, 3:-1] - a[:, 1:-3]) + self.gamma * (a[:, 4:] - a[:, :-4])
+        
+        # boundary points
+        b[:, -2] = self.beta * (a[:, -1] - a[:, -3]) + self.gamma * (a[: , 0] - a[:, -4])
+        b[:, -1] = self.beta * (a[:,  0] - a[:, -2]) + self.gamma * (a[:,  1] - a[:, -3])
+        b[:,  0] = self.beta * (a[:,  1] - a[:, -1]) + self.gamma * (a[:,  2] - a[:, -2])
+        b[:,  1] = self.beta * (a[:,  2] - a[:,  0]) + self.gamma * (a[:,  3] - a[:, -1])
+        
+        # return
+        if self.alpha == 0.:
+            diff = b
+        else:
+            # build first row of circulant Pade coefficients matrix
+            a = np.hstack((1., self.alpha, [0.*j for j in range(len(a)-3)], self.alpha))
+            # solve tri-diagonal system using FFTs and circulant matrix properties
+            diff = np.fft.irfft2(np.fft.rfft2(b)/np.fft.rfft(a))
+        return diff
 
 
     def _add_diffusion(self):
         """
         Diffusion term of the Navier-Stokes
             D = p * 1/Re * (-k_x^2 -k_y^2) * \hat{\omega}
-        
-        Note: This resets the value in self.w when called
-              The penalty value is required for the RK method
+
         """
-        self.dwhdt -= self.ReI*self.k2*self.wh
-        self.dwhdt_to_dwdt()
+        self.dwdt += self.ReI * ( self._ddx(self._ddx(self.w, self.dx), self.dx) +\
+                                  self._ddy(self._ddy(self.w, self.dy), self.dy) )
 
 
     def _add_convection(self):
@@ -239,34 +260,8 @@ class Fluid(object):
         To prevent alliasing, we zero-pad the array before using the
         convolution theorem to evaluate it in physical space.
         """
-        self.dwhdt = -1*self._convolve(1j*self.ky[:,np.newaxis]*self.psih,
-                                       1j*self.kx[:self.nk]*self.wh)
-        self.dwhdt +=   self._convolve(1j*self.kx[:self.nk]*self.psih,
-                                       1j*self.ky[:,np.newaxis]*self.wh)
-        # self._add_spec_filter()
-
-
-    def _convolve(self, a, b):
-        """
-        Evaluate convolution sum. This involves three transforms
-        """
-        # zero-padded temp arrays
-        tmp = np.zeros((self.mx,self.my), dtype=np.complex128)
-        tmp[self.padder, :self.nk] = a
-    
-        # fft with these new coeff, padded with zeros
-        r = np.fft.irfft2(tmp, axes=(-2,-1))
-        tmp *= 0.0j; tmp[self.padder, :self.nk] = b
-
-        # multiplication in physical space, this saves one temp array
-        r *= np.fft.irfft2(tmp, axes=(-2,-1))*self.pad**(2)
-        tmp = np.fft.rfft2(r, axes=(-2,-1))
-        
-        return tmp[self.padder, :self.nk] # truncate fourier modes
-    
-
-    def _add_spec_filter(self):
-        self.dwhdt *= self.fltr
+        self.dwdt = -1*self._ddy(self.psi, self.dy) * self._ddx(self.w, self.dx)
+        self.dwdt +=   self._ddx(self.psi, self.dx) * self._ddy(self.w, self.dy)
 
     
     def _spec_variance(self, ph):
@@ -282,14 +277,15 @@ class Fluid(object):
 
 
     def _tke(self):
-        ke = .5*self._spec_variance(np.sqrt(self.k2)*self.psih)
+        psih = np.fft.rfft2(self.psi, axes=(-2,-1))
+        ke = .5*self._spec_variance(np.sqrt(self.k2)*psih)
         return ke.sum()
 
 
     def _compute_spectrum(self, res):
-        self._get_psih()
+        psih = np.fft.rfft2(self.psi, axes=(-2,-1))
         # angle averaged TKE spectrum
-        tke = np.real(.5*self.k2*self.psih*np.conj(self.psih))
+        tke = np.real(.5*self.k2*psih*np.conj(psih))
         kmod = np.sqrt(self.k2)
         self.k = np.arange(1, self.nk, 1, dtype=np.float64) # niquist limit for this grid
         self.E = np.zeros_like(self.k)
@@ -324,20 +320,17 @@ class Fluid(object):
 
     def show_spec(self):
         plt.figure()
-        plt.imshow(np.real(self.wh))
+        plt.imshow(np.real(np.fft.fft2(self.w, axes=(-2,-1))))
         plt.show()
 
 
-    # def show_vel(self):
-    #     if(self.uptodate!=True):
-    #         self.w_to_wh()
-    #         self._get_psih()
-    #         self.get_u()
-    #         self.get_v()
-    #     plt.figure()
-    #     plt.quiver(self.x, self.y, self.u, self.v)
-    #     plt.xlabel("x"); plt.ylabel("y")
-    #     plt.show()
+    def show_vel(self):
+        self.get_u()
+        self.get_v()
+        plt.figure()
+        plt.quiver(self.x, self.y, self.u, self.v)
+        plt.xlabel("x"); plt.ylabel("y")
+        plt.show()
 
 
     def run_live(self, stop, every=100):
@@ -358,10 +351,9 @@ class Fluid(object):
                 im.set_data(self.w)
                 fig.canvas.draw()
                 fig.canvas.flush_events()
-                print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f" %(iterr,
+                print(f"Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f" %(iterr,
                       self.time, stop-self.time, self._tke()))
 
- 
 
 # if __name__=="__main__":
 #     flow = Fluid(128, 128, 1)
