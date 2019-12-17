@@ -28,7 +28,9 @@ Check that you get error in both norms that are close to machine accuracy.
 
 For a description of the theory behind this code, or to run other cases, such as a double shear layer, or decaying isotropic trubulence, look at [this]().
 
-![shearlayer](shearlayer.png=0.5x)
+<p align="center">
+    <img src="shearlayer.png" width="200"> 
+</p>
 
 ## Using the code
 
