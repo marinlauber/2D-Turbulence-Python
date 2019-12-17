@@ -2,7 +2,7 @@
 
 ## Pseudo-spectral collocation code for two-dimensional turbulence simulations written in object-oriented python.
 
-Once the repository has been cloned or downloaded, check that everythink works by running the validation script
+Once the repository has been cloned or downloaded, check that everything works by running the validation script
 ```
 python valid.py
 ```
