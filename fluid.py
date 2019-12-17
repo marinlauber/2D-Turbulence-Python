@@ -100,6 +100,7 @@ class Fluid(object):
         
         # vorticity in physical space
         self.w = np.fft.irfft2(wh)
+        self.w = self.w/(0.5*abs(self.w).max())-1.
 
 
     def init_solver(self):
@@ -280,7 +281,7 @@ class Fluid(object):
         return var_dens.sum(axis=(-2,-1))
 
 
-    def _calc_ke(self):
+    def _tke(self):
         ke = .5*self._spec_variance(np.sqrt(self.k2)*self.psih)
         return ke.sum()
 
@@ -310,7 +311,8 @@ class Fluid(object):
 
 
     def save_vort(self, folder, iter):
-        np.savetxt(str(folder)+"vort_"+str("%06d"%iter)+".dat", self.w)
+        s = np.zeros(self.ny); s[0]=self.time; s[1]=self.dt
+        np.savetxt(str(folder)+"vort_"+str("%06d"%iter)+".dat", np.vstack((s, self.w)))
 
 
     def show_vort(self):
@@ -357,7 +359,7 @@ class Fluid(object):
                 fig.canvas.draw()
                 fig.canvas.flush_events()
                 print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f" %(iterr,
-                      self.time, stop-self.time, self._calc_ke()))
+                      self.time, stop-self.time, self._tke()))
 
  
 
@@ -365,4 +367,4 @@ class Fluid(object):
 #     flow = Fluid(128, 128, 1)
 #     flow.init_field("TG")
 #     flow.init_solver()
-#     print(flow._calc_ke())
+#     print(flow._tke())
