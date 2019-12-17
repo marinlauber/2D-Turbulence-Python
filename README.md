@@ -29,3 +29,31 @@ Check that you get error in both norms that are close to machine accuracy.
 For a description of the theory behind this code, or to run other cases, such as a double shear layer, or decaying isotropic trubulence, look at [this]().
 
 ![shearlayer](shearlayer.png)
+
+## Using the code
+
+The simulation is initialized by defining a grid, and specifying the Reynolds number of the flow
+```python
+flow = Fluid(nx=64, ny=64, Re=1)
+flow.init_field("Taylor-Green")
+flow.init_solver()
+```
+Here we have initialized the Taylor-Green vortex. The solver initiation generates all the working arrays and transforms the required initial conditions. Simulations can also be initialized using results from previous simulations (these need to have been saved with  `flow.save_vort("PATH/", ID)`)
+```python
+q = np.genfromtxt("PATH/vort_ID.dat")
+flow.time = q[0, 0]
+flow.init_field(field=q[1:, :])
+```
+here we reset the flow timer using the time value saved in the `vort_ID.dat` file. The `finish` time of the simulation must be adjusted accordingly, as well as the `ID` if the field is saved. This allows user-generated field to be used, within the limitations of the method (periodic). The main loop of the solver is called as
+```python
+# loop to solve
+while(flow.time<=finish):
+    flow.update()
+    iterr += 1
+    if(iterr % 1000 == 0):
+        print("Iteration \t %d, time \t %f, time remaining \t %f" %(iterr, flow.time, finish-flow.time))
+```
+Small simulations can also be run live, that is showing the evolution of the vorticity field
+```python
+flow.run_live(finish, every=100)
+```
