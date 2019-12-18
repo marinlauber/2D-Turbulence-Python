@@ -281,9 +281,14 @@ class Fluid(object):
         return var_dens.sum(axis=(-2,-1))
 
 
-    def _tke(self):
+    def tke(self):
         ke = .5*self._spec_variance(np.sqrt(self.k2)*self.psih)
         return ke.sum()
+
+
+    def enstrophy(self):
+        eps = .5*abs(self.w)**2
+        return eps.sum(axis=(-2,-1))
 
 
     def _compute_spectrum(self, res):

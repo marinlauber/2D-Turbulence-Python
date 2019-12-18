@@ -32,9 +32,8 @@ if __name__=="__main__":
 
         #  print every 100 iterations
         if (iterr % 100 == 0):
-            print("Iteration \t %d, time \t %f, time remaining \t %f" %(iterr,
-                                                                       flow.time,
-                                                                       finish-flow.time))
+            print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f, ENS: %f" %(iterr,
+                  flow.time, finish-flow.time, flow.tke(), flow.enstrophy()))
     # flow.run_live(finish, every=100)
 
     end_time = t.time()
