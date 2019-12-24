@@ -9,7 +9,7 @@ __email__  = "M.Lauber@soton.ac.uk"
 
 import numpy as np
 import matplotlib.pyplot as plt
-# import pyfftw
+import pyfftw
 
 class Fluid(object):
 
@@ -25,6 +25,9 @@ class Fluid(object):
         self.uptodate = False
         self.filterfac = 23.6
 
+        self.FFTW = True
+        self.fftw_num_threads = 6
+
         # we assume 2pi periodic domain in each dimensions
         self.x = np.linspace(0, 2*np.pi, nx, endpoint=False)
         self.y = np.linspace(0, 2*np.pi, ny, endpoint=False)
@@ -36,13 +39,6 @@ class Fluid(object):
         # fourier grid
         self.kx = np.fft.fftfreq(self.nx)*self.nx
         self.ky = np.fft.fftfreq(self.ny)*self.ny
-        
-        # different attribute
-        self.u = np.empty((self.nx,self.ny))
-        self.v = np.empty((self.nx,self.ny))
-        self.w = np.empty((self.nx,self.ny))
-        self.w0 = np.empty((self.nx,self.nk))
-        self.dwdt = np.empty((self.nx,self.ny))
 
     
     def init_field(self, field="Taylor-Green", t=0.0, kappa=2., delta=0.005, sigma= 15./np.pi):
@@ -75,6 +71,103 @@ class Fluid(object):
                 print("Specified velocity field does not match grid initialized.")
 
 
+    def init_solver(self):
+
+        try:    
+            self.k2
+        except AttributeError:
+            self.k2 = self.kx[:self.nk]**2 + self.ky[:,np.newaxis]**2
+            self.fk = self.k2 != 0.0
+
+        # initialise array required for solving
+        u = self._empty_real()
+        self.u = u
+        v = self._empty_real()
+        self.v = v
+        w = self._empty_real()
+        self.w = w
+        # self.w = self._empty_real()
+        w0 = self._empty_real()
+        self.w0 = w0
+        dwdt = self._empty_real()
+        self.dwdt = dwdt
+
+        uh = self._empty_imag()
+        self.uh = uh
+        vh = self._empty_imag()
+        self.vh = vh
+        wh = self._empty_imag()
+        self.wh = wh
+        # self.wh = self._empty_imag()
+        psih = self._empty_imag()
+        self.psih = psih
+        dwhdt = self._empty_imag()
+        self.dwhdt = dwhdt
+
+        # utils
+        self.mx = int(self.pad * self.nx)
+        self.my = int(self.pad * self.nk)
+        self.padder = np.ones(self.mx, dtype=bool)
+        self.padder[int(self.nx/2):int(self.nx*(self.pad-0.5)):] = False
+
+        # ṣpectral filter
+        try:
+            self.fltr
+        except AttributeError:
+            self._init_filter()
+        
+        if self.FFTW:
+            pyfftw.interfaces.cache.enable()
+
+            self.w_to_wh = pyfftw.FFTW(w,  wh, threads=self.fftw_num_threads,)
+            # self.wh_to_w = pyfftw.FFTW(wh,  w, threads=self.fftw_num_threads,
+            #                            direction='FFTW_BACKWARD')
+            # self.dwhdt_to_dwdt = pyfftw.FFTW(dwhdt, dwdt, threads=self.fftw_num_threads,
+            #                            direction='FFTW_BACKWARD')
+            # self.uh_to_u = pyfftw.FFTW(uh, u, threads=self.fftw_num_threads,
+            #                            direction='FFTW_BACKWARD')
+            # self.vh_to_v = pyfftw.FFTW(vh, v, threads=self.fftw_num_threads,
+            #                            direction='FFTW_BACKWARD')
+
+
+    def _empty_real(self):
+        shape = (self.nx, self.ny)
+        if self.FFTW:
+            out = pyfftw.empty_aligned(shape, dtype='float64')
+            out.flat[:] = 0.
+            return out
+        else:
+            return np.zeros(shape, dtype='float64')
+
+
+    def _empty_imag(self):
+        shape = (self.nx, self.nk)
+        if self.FFTW:
+            out = pyfftw.empty_aligned(shape, dtype='complex128')
+            out.flat[:] = 0.
+            return out
+        else:
+            return np.zeros(shape, dtype='complex128')
+
+
+    # def w_to_wh(self):
+    #     self.wh = np.fft.rfft2(self.w, axes=(-2,-1))
+    # def wh_to_w(self):
+    #     self.w = np.fft.irfft2(self.wh, axes=(-2,-1))
+    # def dwhdt_to_dwdt(self):
+    #     self.dwdt = np.fft.irfft2(self.dwhdt, axes=(-2,-1))
+    def get_u(self):
+        if self.FFTW:
+            self.uh_to_u(self.ky[:,np.newaxis]*self.psih)
+        else:
+            self.u = np.fft.irfft2(self.ky[:,np.newaxis]*self.psih)
+    def get_v(self):
+        if self.FFTW:
+            self.vh_to_v(self.kx[:self.nk]*self.psih)
+        else:
+            self.v = -np.fft.irfft2(self.kx[:self.nk]*self.psih)
+        
+
     def McWilliams1984(self):
 
         # generate variable
@@ -103,69 +196,12 @@ class Fluid(object):
         self.w = self.w/(0.5*abs(self.w).max())-1.
 
 
-    def init_solver(self):
-
-        try:    
-            self.k2
-        except AttributeError:
-            self.k2 = self.kx[:self.nk]**2 + self.ky[:,np.newaxis]**2
-            self.fk = self.k2 != 0.0
-
-        # initialise array required for solving
-        self.wh = np.zeros((self.nx,self.nk), dtype=np.complex128)
-        self.psih = np.zeros((self.nx,self.nk), dtype=np.complex128)
-        self.dwhdt = np.zeros((self.nx,self.nk), dtype=np.complex128)
-
-        # utils
-        self.mx = int(self.pad * self.nx)
-        self.my = int(self.pad * self.nk)
-        self.padder = np.ones(self.mx, dtype=bool)
-        self.padder[int(self.nx/2):int(self.nx*(self.pad-0.5)):] = False
-
-        # populate those arrays
-        self.w0 = self.w
-
-        # ṣpectral filter
-        try:
-            self.fltr
-        except AttributeError:
-            self._init_filter()
-
-
-    def w_to_wh(self):
-        self.wh = np.fft.rfft2(self.w, axes=(-2,-1))
-        
-
-    def wh_to_w(self):
-        self.w = np.fft.irfft2(self.wh, axes=(-2,-1))
-
-
-    def dwhdt_to_dwdt(self):
-        self.dwdt = np.fft.irfft2(self.dwhdt, axes=(-2,-1))
-        
-
     def _init_filter(self):
         cphi = 0.65*np.max(self.kx)
         wvx = np.sqrt(self.k2)
         filtr = np.exp(-self.filterfac*(wvx-cphi)**4.)
         filtr[wvx<=cphi] = 1.
         self.fltr = filtr
-
-
-    def get_u(self):
-        """
-        Spectral differentiation to get:
-            u = d/dy \psi
-        """
-        self.u = np.fft.irfft2(self.ky[:,np.newaxis]*self.psih)
-
-
-    def get_v(self):
-        """
-        Spectral differentiation to get:
-            v = -d/dx \psi
-        """
-        self.v = -np.fft.irfft2(self.kx[:self.nk]*self.psih)
 
 
     def _cfl_limit(self):
@@ -220,18 +256,6 @@ class Fluid(object):
         self.psih[self.fk] = self.wh[self.fk] / self.k2[self.fk]
 
 
-    def _add_diffusion(self):
-        """
-        Diffusion term of the Navier-Stokes
-            D = p * 1/Re * (-k_x^2 -k_y^2) * \hat{\omega}
-        
-        Note: This resets the value in self.w when called
-              The penalty value is required for the RK method
-        """
-        self.dwhdt -= self.ReI*self.k2*self.wh
-        self.dwhdt_to_dwdt()
-
-
     def _add_convection(self):
         """
         Convective term
@@ -246,6 +270,18 @@ class Fluid(object):
         # self._add_spec_filter()
 
 
+    def _add_diffusion(self):
+        """
+        Diffusion term of the Navier-Stokes
+            D = p * 1/Re * (-k_x^2 -k_y^2) * \hat{\omega}
+        
+        Note: This resets the value in self.w when called
+              The penalty value is required for the RK method
+        """
+        self.dwhdt -= self.ReI*self.k2*self.wh
+        self.dwhdt_to_dwdt()
+
+
     def _convolve(self, a, b):
         """
         Evaluate convolution sum. This involves three transforms
@@ -256,17 +292,20 @@ class Fluid(object):
     
         # fft with these new coeff, padded with zeros
         r = np.fft.irfft2(tmp, axes=(-2,-1))
+        # r = self.wh_to_w(tmp)
         tmp *= 0.0j; tmp[self.padder, :self.nk] = b
 
         # multiplication in physical space, this saves one temp array
         r *= np.fft.irfft2(tmp, axes=(-2,-1))*self.pad**(2)
+        # r *= self.wh_to_w(tmp)*self.pad**(2)
         tmp = np.fft.rfft2(r, axes=(-2,-1))
-        
+        # tmp = self.w_to_wh(r)
+
         return tmp[self.padder, :self.nk] # truncate fourier modes
     
 
-    def _add_spec_filter(self):
-        self.dwhdt *= self.fltr
+    # def _add_spec_filter(self):
+    #     self.dwhdt *= self.fltr
 
     
     def _spec_variance(self, ph):

@@ -9,19 +9,32 @@ __email__  = "M.Lauber@soton.ac.uk"
 
 import time as t
 import numpy as np
+import matplotlib.pyplot as plt
 from fluid import Fluid
 
 if __name__=="__main__":
 
     # build fluid and solver
     flow = Fluid(128, 128, 1.)
-    flow.init_field("Taylor-Green")
     flow.init_solver()
+    flow.init_field("Taylor-Green")
+
+    flow.show_vort()
+    plt.imshow(np.real(flow.wh))
+    plt.show()
+    # flow._get_psih()
+    flow.w_to_wh()
+    plt.imshow(np.real(flow.wh))
+    plt.show()
+
+    # flow.show_vort()
+
+    Stop
 
     print("Starting interating on field.\n")
     start_time = t.time()
     iterr = 0
-    finish = 0.5
+    finish = 0.1
 
     # loop to solve
     while(flow.time<=finish):
@@ -41,6 +54,7 @@ if __name__=="__main__":
     
     # get final results
     w_n = flow.w
+    flow.show_vort()
 
     # exact solution
     flow.init_field("TG", t=flow.time)
