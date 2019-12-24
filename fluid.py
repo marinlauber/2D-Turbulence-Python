@@ -364,7 +364,7 @@ class Fluid(object):
                 fig.canvas.draw()
                 fig.canvas.flush_events()
                 print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f" %(iterr,
-                      self.time, stop-self.time, self._tke()))
+                      self.time, stop-self.time, self.tke()))
 
  
 
