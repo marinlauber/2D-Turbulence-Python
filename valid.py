@@ -19,18 +19,6 @@ if __name__=="__main__":
     flow.init_solver()
     flow.init_field("Taylor-Green")
 
-    flow.show_vort()
-    plt.imshow(np.real(flow.wh))
-    plt.show()
-    # flow._get_psih()
-    flow.w_to_wh()
-    plt.imshow(np.real(flow.wh))
-    plt.show()
-
-    # flow.show_vort()
-
-    Stop
-
     print("Starting interating on field.\n")
     start_time = t.time()
     iterr = 0
