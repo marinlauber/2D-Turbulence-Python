@@ -22,7 +22,7 @@ if __name__=="__main__":
     print("Starting interating on field.\n")
     start_time = t.time()
     iterr = 0
-    finish = 45.0
+    finish = 12.0
 
     # loop to solve
     while(flow.time<=finish):
@@ -31,8 +31,8 @@ if __name__=="__main__":
         if(iterr % 1000 == 0):
             print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f" %(iterr,
                   flow.time, finish-flow.time, flow._tke()))
-#            flow.save_vort("Dat/",iterr/1000)
-#     flow.run_live(finish, every=1000)
+            flow.save_vort("Dat/",iterr/2000)
+    # flow.run_live(finish, every=250)
 
     end_time = t.time()
     print("\nExecution time for %d iterations is %f seconds." %(iterr, end_time-start_time))
