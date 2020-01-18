@@ -9,7 +9,6 @@ __email__  = "M.Lauber@soton.ac.uk"
 
 import numpy as np
 import matplotlib.pyplot as plt
-# import pyfftw
 
 class Fluid(object):
 
