@@ -9,7 +9,6 @@ __email__  = "M.Lauber@soton.ac.uk"
 
 import time as t
 import numpy as np
-import matplotlib.pyplot as plt
 from fluid import Fluid
 
 if __name__=="__main__":
@@ -51,3 +50,8 @@ if __name__=="__main__":
     Linf = np.max(np.abs(flow.w - w_n))
     print("The L2-norm of the Error in the Taylor-Green vortex on a %dx%d grid is %e." % (flow.nx, flow.ny, L2) )
     print("The Linf-norm of the Error in the Taylor-Green vortex on a %dx%d grid is %e." % (flow.nx, flow.ny, Linf) )
+
+    flow.plot_spec()
+    flow.write("", 1)
+    flow.display()
+    flow.display_vel()

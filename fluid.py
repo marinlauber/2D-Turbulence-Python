@@ -67,11 +67,45 @@ class Fluid(object):
         self.dwhdt = self._empty_imag()
 
         # assign padded arrays for non-linear term
-        self.tmp = pyfftw.empty_aligned((self.mx, self.my), dtype='float64')
-        self.tmph= pyfftw.empty_aligned((self.mx, self.mk), dtype='complex128')
-        self.tmp.flat[:] = 0.
-        self.tmph.flat[:]= 0.
+        self.a = self._empty_imag((self.mx,self.mk))
+        self.a1 = self._empty_imag((self.mx,self.mk))
+        self.a2 = self._empty_imag((self.mx,self.mk))
+        self.a3 = self._empty_imag((self.mx,self.mk))
+        self.a4 = self._empty_imag((self.mx,self.mk))
         
+        self.b = self._empty_real((self.mx,self.my))
+        self.b1 = self._empty_real((self.mx,self.my))
+        self.b2 = self._empty_real((self.mx,self.my))
+        self.b3 = self._empty_real((self.mx,self.my))
+        self.b4 = self._empty_real((self.mx,self.my))
+        
+        # for fast transform
+        pyfftw.interfaces.cache.enable()
+
+        self.w_to_wh = pyfftw.FFTW(self.w,  self.wh, threads=self.fftw_num_threads,
+                                   axes=(-2,-1))
+        self.wh_to_w = pyfftw.FFTW(self.wh,  self.w, threads=self.fftw_num_threads,
+                                   direction='FFTW_BACKWARD', axes=(-2,-1))
+        self.dwhdt_to_dwdt = pyfftw.FFTW(self.dwhdt, self.dwdt, threads=self.fftw_num_threads,
+                                   direction='FFTW_BACKWARD', axes=(-2,-1))
+        self.u_to_uh = pyfftw.FFTW(self.u,  self.uh, threads=self.fftw_num_threads,
+                                   axes=(-2,-1))
+        self.uh_to_u = pyfftw.FFTW(self.uh, self.u, threads=self.fftw_num_threads,
+                                   direction='FFTW_BACKWARD', axes=(-2,-1))
+        self.v_to_vh = pyfftw.FFTW(self.v,  self.vh, threads=self.fftw_num_threads,
+                                   axes=(-2,-1))
+        self.vh_to_v = pyfftw.FFTW(self.vh, self.v, threads=self.fftw_num_threads,
+                                   direction='FFTW_BACKWARD', axes=(-2,-1))
+        self.b_to_a = pyfftw.FFTW(self.b, self.a, threads=self.fftw_num_threads,
+                                  axes=(-2,-1))
+        self.a1_to_b1 = pyfftw.FFTW(self.a1, self.b1, threads=self.fftw_num_threads,
+                                    direction='FFTW_BACKWARD', axes=(-2,-1))
+        self.a2_to_b2 = pyfftw.FFTW(self.a2, self.b2, threads=self.fftw_num_threads,
+                                    direction='FFTW_BACKWARD', axes=(-2,-1))
+        self.a3_to_b3 = pyfftw.FFTW(self.a3, self.b3, threads=self.fftw_num_threads,
+                                    direction='FFTW_BACKWARD', axes=(-2,-1))
+        self.a4_to_b4 = pyfftw.FFTW(self.a4, self.b4, threads=self.fftw_num_threads,
+                                    direction='FFTW_BACKWARD', axes=(-2,-1))
 
         # ṣpectral filter
         try:
@@ -79,49 +113,6 @@ class Fluid(object):
         except AttributeError:
             self._init_filter()
         
-        # for fast transform
-        pyfftw.interfaces.cache.enable()
-
-        self.w_to_wh = pyfftw.FFTW(self.w,  self.wh, threads=self.fftw_num_threads,
-                                    axes=(-2,-1))
-        self.wh_to_w = pyfftw.FFTW(self.wh,  self.w, threads=self.fftw_num_threads,
-                                    direction='FFTW_BACKWARD', axes=(-2,-1))
-        self.dwhdt_to_dwdt = pyfftw.FFTW(self.dwhdt, self.dwdt, threads=self.fftw_num_threads,
-                                    direction='FFTW_BACKWARD', axes=(-2,-1))
-        self.u_to_uh = pyfftw.FFTW(self.u,  self.uh, threads=self.fftw_num_threads,
-                                    axes=(-2,-1))
-        self.uh_to_u = pyfftw.FFTW(self.uh, self.u, threads=self.fftw_num_threads,
-                                    direction='FFTW_BACKWARD', axes=(-2,-1))
-        self.v_to_vh = pyfftw.FFTW(self.v,  self.vh, threads=self.fftw_num_threads,
-                                    axes=(-2,-1))
-        self.vh_to_v = pyfftw.FFTW(self.vh, self.v, threads=self.fftw_num_threads,
-                                    direction='FFTW_BACKWARD', axes=(-2,-1))
-        self.tmp_to_tmph = pyfftw.FFTW(self.tmp, self.tmph, threads=self.fftw_num_threads,
-                                    axes=(-2,-1))
-        self.tmph_to_tmp = pyfftw.FFTW(self.tmph, self.tmph, threads=self.fftw_num_threads,
-                                    direction='FFTW_BACKWARD', axes=(-2,-1))
-
-        self.a = pyfftw.empty_aligned((self.mx,self.my),dtype= 'float64')
-        self.b = pyfftw.empty_aligned((self.mx,self.mk),dtype= 'complex128')
-        
-        self.a1 = pyfftw.empty_aligned((self.mx,self.mk),dtype= 'complex128')
-        self.b1 = pyfftw.empty_aligned((self.mx,self.my),dtype= 'float64')
-        
-        self.a2 = pyfftw.empty_aligned((self.mx,self.mk),dtype= 'complex128')
-        self.b2 = pyfftw.empty_aligned((self.mx,self.my),dtype= 'float64')
-        
-        self.a3 = pyfftw.empty_aligned((self.mx,self.mk),dtype= 'complex128')
-        self.b3 = pyfftw.empty_aligned((self.mx,self.my),dtype= 'float64')
-        
-        self.a4 = pyfftw.empty_aligned((self.mx,self.mk),dtype= 'complex128')
-        self.b4 = pyfftw.empty_aligned((self.mx,self.my),dtype= 'float64')
-        
-        self.fft_object = pyfftw.FFTW(self.a, self.b, axes = (0,1), direction = 'FFTW_FORWARD')
-        
-        self.fft_object_inv1 = pyfftw.FFTW(self.a1, self.b1,axes = (0,1), direction = 'FFTW_BACKWARD')
-        self.fft_object_inv2 = pyfftw.FFTW(self.a2, self.b2,axes = (0,1), direction = 'FFTW_BACKWARD')
-        self.fft_object_inv3 = pyfftw.FFTW(self.a3, self.b3,axes = (0,1), direction = 'FFTW_BACKWARD')
-        self.fft_object_inv4 = pyfftw.FFTW(self.a4, self.b4,axes = (0,1), direction = 'FFTW_BACKWARD')
     
 
     def init_field(self, field="Taylor-Green", t=0.0, kappa=2., delta=0.005, sigma= 15./np.pi):
@@ -154,9 +145,10 @@ class Fluid(object):
                 print("Specified velocity field does not match grid initialized.")
 
 
-
-    def _empty_real(self):
+    def _empty_real(self, *args):
         shape = (self.nx, self.ny)
+        for sp in args:
+            shape = sp
         if self.FFTW:
             out = pyfftw.empty_aligned(shape, dtype='float64')
             out.flat[:] = 0.
@@ -165,8 +157,10 @@ class Fluid(object):
             return np.zeros(shape, dtype='float64')
 
 
-    def _empty_imag(self):
+    def _empty_imag(self, *args):
         shape = (self.nx, self.nk)
+        for sp in args:
+            shape = sp
         if self.FFTW:
             out = pyfftw.empty_aligned(shape, dtype='complex128')
             out.flat[:] = 0.
@@ -181,7 +175,7 @@ class Fluid(object):
 
 
     def get_v(self):
-        self.vh[:,:] = self.kx[:self.nk]*self.psih[:, :]
+        self.vh[:,:] = -self.kx[:self.nk]*self.psih[:, :]
         self.vh_to_v()
         
 
@@ -288,14 +282,14 @@ class Fluid(object):
         j3f_padded[self.padder, :self.nk] = 1.0j*self.ky[:, np.newaxis]*self.psih[:, :]
         j4f_padded[self.padder, :self.nk] = 1.0j*self.kx[:self.nk     ]*self.wh[:, :]
         
-        j1 = self.fft_object_inv1(j1f_padded)
-        j2 = self.fft_object_inv2(j2f_padded)
-        j3 = self.fft_object_inv3(j3f_padded)
-        j4 = self.fft_object_inv4(j4f_padded)
+        j1 = self.a1_to_b1(j1f_padded)
+        j2 = self.a2_to_b2(j2f_padded)
+        j3 = self.a3_to_b3(j3f_padded)
+        j4 = self.a4_to_b4(j4f_padded)
         
         jacp = j1*j2 - j3*j4
         
-        jacpf = self.fft_object(jacp)
+        jacpf = self.b_to_a(jacp)
         
         self.dwhdt[:, :] = jacpf[self.padder, :self.nk]*self.pad**(2) # this term is the result of padding
 
@@ -338,8 +332,8 @@ class Fluid(object):
         return self.tmp[self.padder, :self.nk] # truncate fourier modes
     
 
-    # def _add_spec_filter(self):
-    #     self.dwhdt *= self.fltr
+    def _add_spec_filter(self):
+        self.dwhdt *= self.fltr
 
     
     def _spec_variance(self, ph):
@@ -406,16 +400,16 @@ class Fluid(object):
         plt.show()
 
 
-    # def show_vel(self):
-    #     if(self.uptodate!=True):
-    #         self.w_to_wh()
-    #         self._get_psih()
-    #         self.get_u()
-    #         self.get_v()
-    #     plt.figure()
-    #     plt.quiver(self.x, self.y, self.u, self.v)
-    #     plt.xlabel("x"); plt.ylabel("y")
-    #     plt.show()
+    def display_vel(self):
+        if(self.uptodate!=True):
+            self.w_to_wh()
+            self._get_psih()
+            self.get_u()
+            self.get_v()
+        plt.figure()
+        plt.streamplot(self.x, self.y, self.u, self.v)
+        plt.xlabel("x"); plt.ylabel("y")
+        plt.show()
 
 
     def run_live(self, stop, every=100):
@@ -438,8 +432,6 @@ class Fluid(object):
                 fig.canvas.flush_events()
                 print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f" %(iterr,
                       self.time, stop-self.time, self.tke()))
-
- 
 
 # if __name__=="__main__":
 #     flow = Fluid(128, 128, 1)
