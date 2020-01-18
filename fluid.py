@@ -281,12 +281,12 @@ class Fluid(object):
         return var_dens.sum(axis=(-2,-1))
 
 
-    def _tke(self):
+    def tke(self):
         ke = .5*self._spec_variance(np.sqrt(self.k2)*self.psih)
         return ke.sum()
 
 
-    def _enstrophy(self):
+    def enstrophy(self):
         eps = .5*abs(self.w)**2
         return eps.sum(axis=(-2,-1))
 
@@ -320,29 +320,28 @@ class Fluid(object):
         np.savetxt(str(folder)+"vort_"+str("%06d"%iter)+".dat", np.vstack((s, self.w)))
 
 
-    def show_vort(self):
-        p=plt.imshow(self.w, cmap="RdBu")
+    def display(self, complex=False, u_e=None):
+        u = self.w
+        if complex:
+            u = np.real(self.wh)
+        if not np.any(u_e)==None:
+            u -= u_e
+        p=plt.imshow(u, cmap="RdBu")
         plt.colorbar(p)
         plt.xticks([]); plt.yticks([])
         plt.show()
-    
 
-    def show_spec(self):
+
+    def display_vel(self):
+        if(self.uptodate!=True):
+            self.w_to_wh()
+            self._get_psih()
+            self.get_u()
+            self.get_v()
         plt.figure()
-        plt.imshow(np.real(self.wh))
+        plt.streamplot(self.x, self.y, self.u, self.v)
+        plt.xlabel("x"); plt.ylabel("y")
         plt.show()
-
-
-    # def show_vel(self):
-    #     if(self.uptodate!=True):
-    #         self.w_to_wh()
-    #         self._get_psih()
-    #         self.get_u()
-    #         self.get_v()
-    #     plt.figure()
-    #     plt.quiver(self.x, self.y, self.u, self.v)
-    #     plt.xlabel("x"); plt.ylabel("y")
-    #     plt.show()
 
 
     def run_live(self, stop, every=100):
@@ -367,9 +366,8 @@ class Fluid(object):
                       self.time, stop-self.time, self.tke()))
 
  
-
 # if __name__=="__main__":
 #     flow = Fluid(128, 128, 1)
 #     flow.init_field("TG")
 #     flow.init_solver()
-#     print(flow._tke())
+#     print(flow.tke())

@@ -26,8 +26,8 @@ if __name__=="__main__":
 
     # build fluid and solver
     flow = Fluid(256, 256, 1e12)
-    flow.init_field(field=merger(flow.x, flow.y))
     flow.init_solver()
+    flow.init_field(field=merger(flow.x, flow.y))
 
     print("Starting interating on field.\n")
     start_time = t.time()

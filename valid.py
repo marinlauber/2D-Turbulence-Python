@@ -15,13 +15,13 @@ if __name__=="__main__":
 
     # build fluid and solver
     flow = Fluid(128, 128, 1.)
-    flow.init_field("Taylor-Green")
     flow.init_solver()
+    flow.init_field("Taylor-Green")
 
     print("Starting interating on field.\n")
     start_time = t.time()
     iterr = 0
-    finish = 0.5
+    finish = 0.1
 
     # loop to solve
     while(flow.time<=finish):
