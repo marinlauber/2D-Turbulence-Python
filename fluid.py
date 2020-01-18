@@ -281,12 +281,12 @@ class Fluid(object):
         return var_dens.sum(axis=(-2,-1))
 
 
-    def tke(self):
+    def _tke(self):
         ke = .5*self._spec_variance(np.sqrt(self.k2)*self.psih)
         return ke.sum()
 
 
-    def enstrophy(self):
+    def _enstrophy(self):
         eps = .5*abs(self.w)**2
         return eps.sum(axis=(-2,-1))
 
@@ -315,7 +315,7 @@ class Fluid(object):
         plt.show()
 
 
-    def save_vort(self, folder, iter):
+    def write(self, folder, iter):
         s = np.zeros(self.ny); s[0]=self.time; s[1]=self.dt
         np.savetxt(str(folder)+"vort_"+str("%06d"%iter)+".dat", np.vstack((s, self.w)))
 
