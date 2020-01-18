@@ -14,7 +14,20 @@ import pyfftw
 class Fluid(object):
 
     def __init__(self, nx, ny, Re, dt=0.0001, pad=3./2.):
-
+        """
+        initalizes the fluid, given a number or grid points in x and y. Sets flow parameters.
+        Parameters:
+            nx : intger
+                - gird points in the x-direction
+            ny : integer
+                - grid points in the y-direction
+            Re : float
+                - Reynolds number of the flow
+            dt : float
+                - time-step, outdated as we use adaptive time-step
+            pad : float
+                - padding length for Jacobian evaluation
+        """
         # input data
         self.nx = nx
         self.ny = ny; self.nk = self.ny//2+1
@@ -38,7 +51,11 @@ class Fluid(object):
 
 
     def init_solver(self):
-
+        """
+        Initalizes storage arrays and FFT objects. This is relatively expansive
+        as pyFFTW find the fastest way to perform the transfoms, but it is only
+        called once.
+        """
         try:    
             self.k2
         except AttributeError:
@@ -49,6 +66,8 @@ class Fluid(object):
         self.mx = int(self.pad * self.nx)
         self.mk = int(self.pad * self.nk)
         self.my = int(self.pad * self.ny)
+
+        # for easier slicing when padding
         self.padder = np.ones(self.mx, dtype=bool)
         self.padder[int(self.nx/2):int(self.nx*(self.pad-0.5)):] = False
 
@@ -81,13 +100,12 @@ class Fluid(object):
         
         # for fast transform
         pyfftw.interfaces.cache.enable()
-
         self.w_to_wh = pyfftw.FFTW(self.w,  self.wh, threads=self.fftw_num_threads,
                                    axes=(-2,-1))
         self.wh_to_w = pyfftw.FFTW(self.wh,  self.w, threads=self.fftw_num_threads,
                                    direction='FFTW_BACKWARD', axes=(-2,-1))
         self.dwhdt_to_dwdt = pyfftw.FFTW(self.dwhdt, self.dwdt, threads=self.fftw_num_threads,
-                                   direction='FFTW_BACKWARD', axes=(-2,-1))
+                                         direction='FFTW_BACKWARD', axes=(-2,-1))
         self.u_to_uh = pyfftw.FFTW(self.u,  self.uh, threads=self.fftw_num_threads,
                                    axes=(-2,-1))
         self.uh_to_u = pyfftw.FFTW(self.uh, self.u, threads=self.fftw_num_threads,
@@ -112,27 +130,30 @@ class Fluid(object):
             self.fltr
         except AttributeError:
             self._init_filter()
-        
     
 
     def init_field(self, field="Taylor-Green", t=0.0, kappa=2., delta=0.005, sigma= 15./np.pi):
         """
-        Inital flow field following the Taylor-Green solution of the Navier-Stokes
-        or a double shear layer.
+        Inital the vorticity field. Different fields are hard coded, i.e. Taylor-Green vortex, double shear layer,
+        McWilliams random vorticity realisation. User-defined fields can also be passed.
 
             Params:
-                field: string
-                    -Type of field to initialise
+                field : string
+                    - Type of field to initialise, or actuall field as a numpy array
+                t : float
+                    - time at which to compute field (onlt for the Taylor-Green solution)
+                other : varies
+                    - additional parameters, field dependent
         """
         if(type(field)==str):
             if(field=="TG" or field=="Taylor-Green"):
                 self.w[:,:] = 2 * kappa * np.cos(kappa * self.x) * np.cos(kappa * self.y[:, np.newaxis]) *\
-                        np.exp(-2 * kappa**2 * t / self.Re)
+                              np.exp(-2 * kappa**2 * t / self.Re)
             elif(field=="SL" or field=="Shear Layer"):
                 self.w[:,:] = delta * np.cos(self.x) - sigma * np.cosh(sigma * (self.y[:,np.newaxis] -\
-                        0.5*np.pi))**(-2)
+                              0.5*np.pi))**(-2)
                 self.w [:,:]+= delta * np.cos(self.x) + sigma * np.cosh(sigma * (1.5*np.pi -\
-                        self.y[:,np.newaxis]))**(-2)
+                               self.y[:,np.newaxis]))**(-2)
             elif(field=="McWilliams" or field=="MW84"):
                 self.McWilliams1984()
             else:
@@ -145,7 +166,8 @@ class Fluid(object):
                 print("Specified velocity field does not match grid initialized.")
 
 
-    def _empty_real(self, *args):
+    # bit-aligned storage arrays for pyFFTW
+    def _empty_real(self, *args): 
         shape = (self.nx, self.ny)
         for sp in args:
             shape = sp
@@ -180,12 +202,15 @@ class Fluid(object):
         
 
     def McWilliams1984(self):
-
+        """
+        Generates McWilliams vorticity field, see:
+            McWilliams (1984), "The emergence of isolated coherent vortices in turbulent flow"
+        """
         # generate variable
         self.k2 = self.kx[:self.nk]**2 + self.ky[:,np.newaxis]**2
         self.fk = self.k2 != 0.0
 
-        # emsemble variance proportional to the prescribed scalar wavenumber function
+        # ensemble variance proportional to the prescribed scalar wavenumber function
         ck = np.zeros((self.nx, self.nk))
         ck[self.fk] = np.sqrt(self.k2[self.fk]*(1+(self.k2[self.fk]/36)**2))**(-1)
         
@@ -204,10 +229,12 @@ class Fluid(object):
         
         # vorticity in physical space
         self.w[:,:] = np.fft.irfft2(wh)
-        # self.w = self.w/(0.5*abs(self.w).max())-1.
 
 
     def _init_filter(self):
+        """
+        Exponential filter, designed to completely dampens higest modes to machine accuracy
+        """
         cphi = 0.65*np.max(self.kx)
         wvx = np.sqrt(self.k2)
         filtr = np.exp(-self.filterfac*(wvx-cphi)**4.)
@@ -218,8 +245,6 @@ class Fluid(object):
     def _cfl_limit(self):
         """
         Adjust time-step based on the courant condition
-        
-        Note: this assumes that you initial velocity field is correctly normalized.
         """
         self.get_u()
         self.get_v()
@@ -233,7 +258,7 @@ class Fluid(object):
         Low-storage S-order Runge-Kutta method from Jameson, Schmidt and Turkel (1981)
         Input:
             s : float
-                desired order of the method, default is 3rd order
+                - desired order of the method, default is 3rd order
         """
         # iniitalise field
         self.w0[:, :] = self.w[:, :]
@@ -264,14 +289,25 @@ class Fluid(object):
         self.psih[self.fk] = self.wh[self.fk] / self.k2[self.fk]
 
 
+    def _add_diffusion(self):
+        """
+        Diffusion term of the Navier-Stokes
+            D = 1/Re * (-k_x^2 -k_y^2) * \hat{\omega}
+        
+        Note: This resets the value in self.w when called
+        """
+        self.dwhdt[:, :] = self.dwhdt[:, :] - self.ReI*self.k2*self.wh[:, :]
+        self.dwhdt_to_dwdt()
+
+
     def _add_convection(self):
         """
         Convective term
-            N = -d/dy \psi * d/dx \omega + d/dx \psi * d/dy \omega
+            N = d/dx \psi * d/dy \omega - d/dy \psi * d/dx \omega
         To prevent alliasing, we zero-pad the array before using the
         convolution theorem to evaluate it in physical space.
         """
-        
+        # padded arrays
         j1f_padded = np.zeros((self.mx,self.mk),dtype='complex128')
         j2f_padded = np.zeros((self.mx,self.mk),dtype='complex128')
         j3f_padded = np.zeros((self.mx,self.mk),dtype='complex128')
@@ -282,6 +318,7 @@ class Fluid(object):
         j3f_padded[self.padder, :self.nk] = 1.0j*self.ky[:, np.newaxis]*self.psih[:, :]
         j4f_padded[self.padder, :self.nk] = 1.0j*self.kx[:self.nk     ]*self.wh[:, :]
         
+        # ifft
         j1 = self.a1_to_b1(j1f_padded)
         j2 = self.a2_to_b2(j2f_padded)
         j3 = self.a3_to_b3(j3f_padded)
@@ -293,44 +330,6 @@ class Fluid(object):
         
         self.dwhdt[:, :] = jacpf[self.padder, :self.nk]*self.pad**(2) # this term is the result of padding
 
-
-    def _add_diffusion(self):
-        """
-        Diffusion term of the Navier-Stokes
-            D = p * 1/Re * (-k_x^2 -k_y^2) * \hat{\omega}
-        
-        Note: This resets the value in self.w when called
-              The penalty value is required for the RK method
-        """
-        self.dwhdt[:, :] = self.dwhdt[:, :] - self.ReI*self.k2*self.wh[:, :]
-        self.dwhdt_to_dwdt()
-
-
-    def _convolve(self, a, b):
-        """
-        Evaluate convolution sum. This involves three transforms
-        """
-        # zero-padded temp arrays
-        # tmp = np.zeros((self.mx,self.my), dtype='complex128')
-        self.tmph.flat[:] = 0.
-        self.tmph[self.padder, :self.nk] = a
-    
-        # fft with these new coeff, padded with zeros
-        # r = np.fft.irfft2(tmp, axes=(-2,-1))
-        self.tmph_to_tmp()
-        r = self.tmp
-
-        self.tmph[self.padder, :self.nk] = b
-
-        # multiplication in physical space, this saves one temp array
-        # r *= np.fft.irfft2(tmp, axes=(-2,-1))*self.pad**(2)
-        # tmp = np.fft.rfft2(r, axes=(-2,-1))
-        self.tmph_to_tmp()
-        self.tmp *= r*self.pad**(2)
-        self.tmp_to_tmph()
-
-        return self.tmp[self.padder, :self.nk] # truncate fourier modes
-    
 
     def _add_spec_filter(self):
         self.dwhdt *= self.fltr
@@ -372,7 +371,7 @@ class Fluid(object):
             self.E[i] += np.sum(tke[(kmod<self.k[i]+dk) & (kmod>=self.k[i]-dk)])
 
     
-    def plot_spec(self,res=200):
+    def plot_spec(self, res=200):
         self._compute_spectrum(200)
         plt.figure(figsize=(6,6))
         plt.plot(self.k, self.E, '-k', label="E(k)")
@@ -433,8 +432,9 @@ class Fluid(object):
                 print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f" %(iterr,
                       self.time, stop-self.time, self.tke()))
 
+
 # if __name__=="__main__":
 #     flow = Fluid(128, 128, 1)
-#     flow.init_field("TG")
 #     flow.init_solver()
+#     flow.init_field("TG")
 #     print(flow.tke())
