@@ -15,9 +15,10 @@ if __name__=="__main__":
 
     # build fluid and solver
     flow = Fluid(64, 64, 1e12, pad=1.)
+    flow.init_solver()
     q = -np.exp(-((flow.x-np.pi)**2 + (4.0*(flow.y[:,np.newaxis]-np.pi))**2)/(np.pi/3.0)**2)
     flow.init_field(field=q)
-    flow.init_solver()
+    
 
     print("Starting interating on field.\n")
     start_time = t.time()
@@ -37,4 +38,4 @@ if __name__=="__main__":
     end_time = t.time()
     print("\nExecution time for %d iterations is %f seconds." %(iterr, end_time-start_time))
 
-    flow.show_vort()
+    flow.display()

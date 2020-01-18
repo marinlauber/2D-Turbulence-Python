@@ -36,36 +36,6 @@ class Fluid(object):
         self.kx = np.fft.fftfreq(self.nx)*self.nx
         self.ky = np.fft.fftfreq(self.ny)*self.ny
 
-    
-    def init_field(self, field="Taylor-Green", t=0.0, kappa=2., delta=0.005, sigma= 15./np.pi):
-        """
-        Inital flow field following the Taylor-Green solution of the Navier-Stokes
-        or a double shear layer.
-
-            Params:
-                field: string
-                    -Type of field to initialise
-        """
-        if(type(field)==str):
-            if(field=="TG" or field=="Taylor-Green"):
-                self.w[:,:] = 2 * kappa * np.cos(kappa * self.x) * np.cos(kappa * self.y[:, np.newaxis]) *\
-                        np.exp(-2 * kappa**2 * t / self.Re)
-            elif(field=="SL" or field=="Shear Layer"):
-                self.w[:,:] = delta * np.cos(self.x) - sigma * np.cosh(sigma * (self.y[:,np.newaxis] -\
-                        0.5*np.pi))**(-2)
-                self.w [:,:]+= delta * np.cos(self.x) + sigma * np.cosh(sigma * (1.5*np.pi -\
-                        self.y[:,np.newaxis]))**(-2)
-            elif(field=="McWilliams" or field=="MW84"):
-                self.McWilliams1984()
-            else:
-                print("The specified field type %s is unknown.\nAvailable initial fields are"+\
-                      ": \"Taylor-Green\", \"Shear Layer\"." % field)
-        elif(type(field)==np.ndarray):
-            if(field.shape==(self.nx, self.ny)):
-                self.w[:,:] = field
-            else:
-                print("Specified velocity field does not match grid initialized.")
-
 
     def init_solver(self):
 
@@ -96,14 +66,12 @@ class Fluid(object):
         self.psih = self._empty_imag()
         self.dwhdt = self._empty_imag()
 
-        if self.FFTW:
-            self.tmp = pyfftw.empty_aligned((self.mx, self.my), dtype='float64')
-            self.tmph= pyfftw.empty_aligned((self.mx, self.mk), dtype='complex128')
-            self.tmp.flat[:] = 0.
-            self.tmph.flat[:]= 0.
-        else:
-            self.tmp = np.zeros((self.mx, self.my), dtype='float64')
-            self.tmph = np.zeros((self.mx,self.mk), dtype='complex128')
+        # assign padded arrays for non-linear term
+        self.tmp = pyfftw.empty_aligned((self.mx, self.my), dtype='float64')
+        self.tmph= pyfftw.empty_aligned((self.mx, self.mk), dtype='complex128')
+        self.tmp.flat[:] = 0.
+        self.tmph.flat[:]= 0.
+        
 
         # ṣpectral filter
         try:
@@ -111,27 +79,80 @@ class Fluid(object):
         except AttributeError:
             self._init_filter()
         
-        if self.FFTW:
-            pyfftw.interfaces.cache.enable()
+        # for fast transform
+        pyfftw.interfaces.cache.enable()
 
-            self.w_to_wh = pyfftw.FFTW(self.w,  self.wh, threads=self.fftw_num_threads,
-                                       axes=(-2,-1))
-            self.wh_to_w = pyfftw.FFTW(self.wh,  self.w, threads=self.fftw_num_threads,
-                                       direction='FFTW_BACKWARD', axes=(-2,-1))
-            self.dwhdt_to_dwdt = pyfftw.FFTW(self.dwhdt, self.dwdt, threads=self.fftw_num_threads,
-                                       direction='FFTW_BACKWARD', axes=(-2,-1))
-            self.u_to_uh = pyfftw.FFTW(self.u,  self.uh, threads=self.fftw_num_threads,
-                                       axes=(-2,-1))
-            self.uh_to_u = pyfftw.FFTW(self.uh, self.u, threads=self.fftw_num_threads,
-                                       direction='FFTW_BACKWARD', axes=(-2,-1))
-            self.v_to_vh = pyfftw.FFTW(self.v,  self.vh, threads=self.fftw_num_threads,
-                                       axes=(-2,-1))
-            self.vh_to_v = pyfftw.FFTW(self.vh, self.v, threads=self.fftw_num_threads,
-                                       direction='FFTW_BACKWARD', axes=(-2,-1))
-            self.tmp_to_tmph = pyfftw.FFTW(self.tmp, self.tmph, threads=self.fftw_num_threads,
-                                       axes=(-2,-1))
-            self.tmph_to_tmp = pyfftw.FFTW(self.tmph, self.tmph, threads=self.fftw_num_threads,
-                                       direction='FFTW_BACKWARD', axes=(-2,-1))
+        self.w_to_wh = pyfftw.FFTW(self.w,  self.wh, threads=self.fftw_num_threads,
+                                    axes=(-2,-1))
+        self.wh_to_w = pyfftw.FFTW(self.wh,  self.w, threads=self.fftw_num_threads,
+                                    direction='FFTW_BACKWARD', axes=(-2,-1))
+        self.dwhdt_to_dwdt = pyfftw.FFTW(self.dwhdt, self.dwdt, threads=self.fftw_num_threads,
+                                    direction='FFTW_BACKWARD', axes=(-2,-1))
+        self.u_to_uh = pyfftw.FFTW(self.u,  self.uh, threads=self.fftw_num_threads,
+                                    axes=(-2,-1))
+        self.uh_to_u = pyfftw.FFTW(self.uh, self.u, threads=self.fftw_num_threads,
+                                    direction='FFTW_BACKWARD', axes=(-2,-1))
+        self.v_to_vh = pyfftw.FFTW(self.v,  self.vh, threads=self.fftw_num_threads,
+                                    axes=(-2,-1))
+        self.vh_to_v = pyfftw.FFTW(self.vh, self.v, threads=self.fftw_num_threads,
+                                    direction='FFTW_BACKWARD', axes=(-2,-1))
+        self.tmp_to_tmph = pyfftw.FFTW(self.tmp, self.tmph, threads=self.fftw_num_threads,
+                                    axes=(-2,-1))
+        self.tmph_to_tmp = pyfftw.FFTW(self.tmph, self.tmph, threads=self.fftw_num_threads,
+                                    direction='FFTW_BACKWARD', axes=(-2,-1))
+
+        self.a = pyfftw.empty_aligned((self.mx,self.my),dtype= 'float64')
+        self.b = pyfftw.empty_aligned((self.mx,self.mk),dtype= 'complex128')
+        
+        self.a1 = pyfftw.empty_aligned((self.mx,self.mk),dtype= 'complex128')
+        self.b1 = pyfftw.empty_aligned((self.mx,self.my),dtype= 'float64')
+        
+        self.a2 = pyfftw.empty_aligned((self.mx,self.mk),dtype= 'complex128')
+        self.b2 = pyfftw.empty_aligned((self.mx,self.my),dtype= 'float64')
+        
+        self.a3 = pyfftw.empty_aligned((self.mx,self.mk),dtype= 'complex128')
+        self.b3 = pyfftw.empty_aligned((self.mx,self.my),dtype= 'float64')
+        
+        self.a4 = pyfftw.empty_aligned((self.mx,self.mk),dtype= 'complex128')
+        self.b4 = pyfftw.empty_aligned((self.mx,self.my),dtype= 'float64')
+        
+        self.fft_object = pyfftw.FFTW(self.a, self.b, axes = (0,1), direction = 'FFTW_FORWARD')
+        
+        self.fft_object_inv1 = pyfftw.FFTW(self.a1, self.b1,axes = (0,1), direction = 'FFTW_BACKWARD')
+        self.fft_object_inv2 = pyfftw.FFTW(self.a2, self.b2,axes = (0,1), direction = 'FFTW_BACKWARD')
+        self.fft_object_inv3 = pyfftw.FFTW(self.a3, self.b3,axes = (0,1), direction = 'FFTW_BACKWARD')
+        self.fft_object_inv4 = pyfftw.FFTW(self.a4, self.b4,axes = (0,1), direction = 'FFTW_BACKWARD')
+    
+
+    def init_field(self, field="Taylor-Green", t=0.0, kappa=2., delta=0.005, sigma= 15./np.pi):
+        """
+        Inital flow field following the Taylor-Green solution of the Navier-Stokes
+        or a double shear layer.
+
+            Params:
+                field: string
+                    -Type of field to initialise
+        """
+        if(type(field)==str):
+            if(field=="TG" or field=="Taylor-Green"):
+                self.w[:,:] = 2 * kappa * np.cos(kappa * self.x) * np.cos(kappa * self.y[:, np.newaxis]) *\
+                        np.exp(-2 * kappa**2 * t / self.Re)
+            elif(field=="SL" or field=="Shear Layer"):
+                self.w[:,:] = delta * np.cos(self.x) - sigma * np.cosh(sigma * (self.y[:,np.newaxis] -\
+                        0.5*np.pi))**(-2)
+                self.w [:,:]+= delta * np.cos(self.x) + sigma * np.cosh(sigma * (1.5*np.pi -\
+                        self.y[:,np.newaxis]))**(-2)
+            elif(field=="McWilliams" or field=="MW84"):
+                self.McWilliams1984()
+            else:
+                print("The specified field type %s is unknown.\nAvailable initial fields are"+\
+                      ": \"Taylor-Green\", \"Shear Layer\"." % field)
+        elif(type(field)==np.ndarray):
+            if(field.shape==(self.nx, self.ny)):
+                self.w[:,:] = field
+            else:
+                print("Specified velocity field does not match grid initialized.")
+
 
 
     def _empty_real(self):
@@ -154,19 +175,13 @@ class Fluid(object):
             return np.zeros(shape, dtype='complex128')
 
 
-    # def w_to_wh(self):
-    #     self.wh = np.fft.rfft2(self.w, axes=(-2,-1))
-    # def wh_to_w(self):
-    #     self.w = np.fft.irfft2(self.wh, axes=(-2,-1))
-    # def dwhdt_to_dwdt(self):
-    #     self.dwdt = np.fft.irfft2(self.dwhdt, axes=(-2,-1))
     def get_u(self):
-        # self.u = np.fft.irfft2(self.ky[:,np.newaxis]*self.psih)
-        self.uh[:,:] = self.ky[:,np.newaxis]*self.psih
+        self.uh[:,:] = self.ky[:,np.newaxis]*self.psih[:, :]
         self.uh_to_u()
+
+
     def get_v(self):
-        # self.v = -np.fft.irfft2(self.kx[:self.nk]*self.psih)
-        self.vh[:,:] = self.kx[:self.nk]*self.psih
+        self.vh[:,:] = self.kx[:self.nk]*self.psih[:, :]
         self.vh_to_v()
         
 
@@ -227,7 +242,7 @@ class Fluid(object):
                 desired order of the method, default is 3rd order
         """
         # iniitalise field
-        self.w0 = self.w
+        self.w0[:, :] = self.w[:, :]
 
         for k in range(s, 0, -1):
             # invert Poisson equation for the stream function (changes to k-space)
@@ -240,7 +255,7 @@ class Fluid(object):
             self._add_diffusion()
 
             # step in time
-            self.w = self.w0 + (self.dt/k) * self.dwdt
+            self.w[:, :] = self.w0[:, :] + (self.dt/k) * self.dwdt[:, :]
 
         self.time += self.dt
         self._cfl_limit()
@@ -262,11 +277,27 @@ class Fluid(object):
         To prevent alliasing, we zero-pad the array before using the
         convolution theorem to evaluate it in physical space.
         """
-        self.dwhdt = -1*self._convolve(1j*self.ky[:,np.newaxis]*self.psih,
-                                       1j*self.kx[:self.nk]*self.wh)
-        self.dwhdt +=   self._convolve(1j*self.kx[:self.nk]*self.psih,
-                                       1j*self.ky[:,np.newaxis]*self.wh)
-        # self._add_spec_filter()
+        
+        j1f_padded = np.zeros((self.mx,self.mk),dtype='complex128')
+        j2f_padded = np.zeros((self.mx,self.mk),dtype='complex128')
+        j3f_padded = np.zeros((self.mx,self.mk),dtype='complex128')
+        j4f_padded = np.zeros((self.mx,self.mk),dtype='complex128')
+        
+        j1f_padded[self.padder, :self.nk] = 1.0j*self.kx[:self.nk     ]*self.psih[:, :]
+        j2f_padded[self.padder, :self.nk] = 1.0j*self.ky[:, np.newaxis]*self.wh[:, :]
+        j3f_padded[self.padder, :self.nk] = 1.0j*self.ky[:, np.newaxis]*self.psih[:, :]
+        j4f_padded[self.padder, :self.nk] = 1.0j*self.kx[:self.nk     ]*self.wh[:, :]
+        
+        j1 = self.fft_object_inv1(j1f_padded)
+        j2 = self.fft_object_inv2(j2f_padded)
+        j3 = self.fft_object_inv3(j3f_padded)
+        j4 = self.fft_object_inv4(j4f_padded)
+        
+        jacp = j1*j2 - j3*j4
+        
+        jacpf = self.fft_object(jacp)
+        
+        self.dwhdt[:, :] = jacpf[self.padder, :self.nk]*self.pad**(2) # this term is the result of padding
 
 
     def _add_diffusion(self):
@@ -277,7 +308,7 @@ class Fluid(object):
         Note: This resets the value in self.w when called
               The penalty value is required for the RK method
         """
-        self.dwhdt = self.dwhdt - self.ReI*self.k2*self.wh
+        self.dwhdt[:, :] = self.dwhdt[:, :] - self.ReI*self.k2*self.wh[:, :]
         self.dwhdt_to_dwdt()
 
 
@@ -357,21 +388,21 @@ class Fluid(object):
         plt.show()
 
 
-    def save_vort(self, folder, iter):
+    def write(self, folder, iter):
         s = np.zeros(self.ny); s[0]=self.time; s[1]=self.dt
+        s[2]=self.tke(); s[3]=self.enstrophy()
         np.savetxt(str(folder)+"vort_"+str("%06d"%iter)+".dat", np.vstack((s, self.w)))
 
 
-    def show_vort(self):
-        p=plt.imshow(self.w, cmap="RdBu")
+    def display(self, complex=False, u_e=None):
+        u = self.w
+        if complex:
+            u = np.real(self.wh)
+        if not np.any(u_e)==None:
+            u -= u_e
+        p=plt.imshow(u, cmap="RdBu")
         plt.colorbar(p)
         plt.xticks([]); plt.yticks([])
-        plt.show()
-    
-
-    def show_spec(self):
-        plt.figure()
-        plt.imshow(np.real(self.wh))
         plt.show()
 
 
@@ -393,7 +424,7 @@ class Fluid(object):
         plt.ion()
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        im = ax.imshow(self.w, norm=None, cmap="RdBu")
+        im = ax.imshow(self.w, norm=None, cmap="binary_r")
         cax = make_axes_locatable(ax).append_axes("right", size="5%", pad="2%")
         cb = fig.colorbar(im, cax=cax)
         ax.set_xticks([]); ax.set_yticks([])
@@ -406,7 +437,7 @@ class Fluid(object):
                 fig.canvas.draw()
                 fig.canvas.flush_events()
                 print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f" %(iterr,
-                      self.time, stop-self.time, self._tke()))
+                      self.time, stop-self.time, self.tke()))
 
  
 
@@ -414,4 +445,4 @@ class Fluid(object):
 #     flow = Fluid(128, 128, 1)
 #     flow.init_field("TG")
 #     flow.init_solver()
-#     print(flow._tke())
+#     print(flow.tke())
