@@ -14,26 +14,25 @@ from fluid import Fluid
 if __name__=="__main__":
 
     # build fluid and solver
-    flow = Fluid(64, 64, 1e12, pad=1.)
+    flow = Fluid(128, 128, 1e6)
     flow.init_solver()
-    q = -np.exp(-((flow.x-np.pi)**2 + (4.0*(flow.y[:,np.newaxis]-np.pi))**2)/(np.pi/3.0)**2)
-    flow.init_field(field=q)
-    
+    # q = -np.exp(-((flow.x-np.pi)**2 + (4.0*(flow.y[:,np.newaxis]-np.pi))**2)/(np.pi/3.0)**2)
+    flow.init_field("SL")
 
     print("Starting interating on field.\n")
     start_time = t.time()
     iterr = 0
-    finish = 19.0
+    finish = 12.0
 
     # loop to solve
-    # while(flow.time<=finish):
-    #     flow.update()
-    #     iterr += 1
-    #     if(iterr % 1000 == 0):
-    #         print("Iteration \t %d, time \t %f, time remaining \t %f" %(iterr,
-    #                                                                     flow.time,
-    #                                                                     finish-flow.time))
-    flow.run_live(finish, every=1000)
+    while(flow.time<=finish):
+        flow.update()
+        iterr += 1
+        if(iterr % 500 == 0):
+            print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f, ENS: %f" %(iterr,
+                  flow.time, finish-flow.time, flow.tke(), flow.enstrophy()))
+            flow.write(folder="Dat/", iter=iterr/500)
+    # flow.run_live(finish, every=1000)
 
     end_time = t.time()
     print("\nExecution time for %d iterations is %f seconds." %(iterr, end_time-start_time))
