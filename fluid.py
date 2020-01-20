@@ -316,6 +316,7 @@ class Fluid(object):
 
     def write(self, folder, iter):
         s = np.zeros(self.ny); s[0]=self.time; s[1]=self.dt
+        s[2]=self.tke(); s[3]=self.enstrophy()
         np.savetxt(str(folder)+"vort_"+str("%06d"%iter)+".dat", np.vstack((s, self.w)))
 
 
