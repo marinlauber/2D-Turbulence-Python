@@ -22,7 +22,7 @@ class Fluid(object):
             ny : integer
                 - grid points in the y-direction
             Re : float
-                - Reynolds number of the flow
+                - Reynolds number of the flow, for very large value, set to zero
             dt : float
                 - time-step, outdated as we use adaptive time-step
             pad : float
@@ -31,7 +31,8 @@ class Fluid(object):
         # input data
         self.nx = nx
         self.ny = ny; self.nk = self.ny//2+1
-        self.Re = Re; self.ReI = 1./self.Re
+        self.Re = Re; self.ReI = 0.
+        if self.Re != 0.: self.ReI = 1./self.Re
         self.dt = dt
         self.pad = pad
         self.time = 0.
@@ -185,7 +186,7 @@ class Fluid(object):
             shape = sp
         if self.FFTW:
             out = pyfftw.empty_aligned(shape, dtype='complex128')
-            out.flat[:] = 0.
+            out.flat[:] = 0. + 0.*1j
             return out
         else:
             return np.zeros(shape, dtype='complex128')
@@ -221,7 +222,7 @@ class Fluid(object):
         # ṃake sure the stream function has zero mean
         psi = np.fft.irfft2(psih)
         psih = np.fft.rfft2(psi-psi.mean())
-        KEaux = self._spec_variance(psih)
+        KEaux = self._spec_variance(self.fltr*np.sqrt(self.k2)*psih)
         psi = psih/np.sqrt(KEaux)
 
         # inverse Laplacian in k-space
@@ -275,7 +276,7 @@ class Fluid(object):
 
             # step in time
             self.w[:, :] = self.w0[:, :] + (self.dt/k) * self.dwdt[:, :]
-
+            # self._add_spec_filter()
         self.time += self.dt
         self._cfl_limit()
     
@@ -336,13 +337,11 @@ class Fluid(object):
 
     
     def _spec_variance(self, ph):
-        # spectral filter
-        self._init_filter()
-
         # only half the spectrum for real ffts, needs spectral normalisation
-        var_dens = 2 * np.abs(self.fltr*np.sqrt(self.k2)*ph)**2 / (self.nx*self.ny)**2
-        var_dens[..., 0] /= 2
-        var_dens[...,-1] /= 2
+        var_dens = 2 * np.abs(ph)**2 / (self.nx*self.ny)**2
+        # only half of coefs [0] and [nx/2+1] due to symmetry in real fft2
+        var_dens[..., 0] /= 2.
+        var_dens[...,-1] /= 2.
 
         return var_dens.sum(axis=(-2,-1))
 
@@ -393,9 +392,9 @@ class Fluid(object):
             u = np.real(self.wh)
         if not np.any(u_e)==None:
             u -= u_e
-        p=plt.imshow(u, cmap="RdBu")
+        p=plt.imshow(u, cmap="RdBu_r")
         plt.colorbar(p)
-        plt.xticks([]); plt.yticks([])
+        # plt.xticks([]); plt.yticks([])
         plt.show()
 
 
@@ -417,7 +416,7 @@ class Fluid(object):
         plt.ion()
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        im = ax.imshow(self.w, norm=None, cmap="binary_r")
+        im = ax.imshow(self.w, norm=None, cmap="RdBu")
         cax = make_axes_locatable(ax).append_axes("right", size="5%", pad="2%")
         cb = fig.colorbar(im, cax=cax)
         ax.set_xticks([]); ax.set_yticks([])
