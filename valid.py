@@ -28,18 +28,18 @@ if __name__=="__main__":
 
         #  update using RK
         flow.update()
-        iterr += 1
 
         #  print every 100 iterations
-        if (iterr % 100 == 0):
-            print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f, ENS: %f" %(iterr,
+        if (flow.it % 100 == 0):
+            print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f, ENS: %f" %(flow.it,
                   flow.time, finish-flow.time, flow.tke(), flow.enstrophy()))
     # flow.run_live(finish, every=100)
 
     end_time = t.time()
-    print("\nExecution time for %d iterations is %f seconds." %(iterr, end_time-start_time))
+    print("\nExecution time for %d iterations is %f seconds." %(flow.it, end_time-start_time))
     
     # get final results
+    flow.wh_to_w()
     w_n = flow.w
 
     # exact solution
