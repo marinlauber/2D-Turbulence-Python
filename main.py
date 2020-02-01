@@ -27,14 +27,13 @@ if __name__=="__main__":
     # loop to solve
     while(flow.time<=finish):
         flow.update()
-        iterr += 1
-        if(iterr % 500 == 0):
-            print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f, ENS: %f" %(iterr,
+        if(flow.it % 500 == 0):
+            print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f, ENS: %f" %(flow.it,
                   flow.time, finish-flow.time, flow.tke(), flow.enstrophy()))
-            flow.write(folder="Dat/", iter=iterr/500)
+            flow.write(folder="Dat/", iter=flow.it/500)
     # flow.run_live(finish, every=1000)
 
     end_time = t.time()
-    print("\nExecution time for %d iterations is %f seconds." %(iterr, end_time-start_time))
+    print("\nExecution time for %d iterations is %f seconds." %(flow.it, end_time-start_time))
 
     flow.display()

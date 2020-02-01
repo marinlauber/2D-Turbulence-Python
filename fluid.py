@@ -36,6 +36,7 @@ class Fluid(object):
         self.dt = dt
         self.pad = pad
         self.time = 0.
+        self.it = 0
         self.uptodate = False
         self.filterfac = 23.6
 
@@ -279,6 +280,7 @@ class Fluid(object):
             # self._add_spec_filter()
         self.time += self.dt
         self._cfl_limit()
+        self.it += 1
     
 
     def _get_psih(self):
@@ -293,9 +295,7 @@ class Fluid(object):
     def _add_diffusion(self):
         """
         Diffusion term of the Navier-Stokes
-            D = 1/Re * (-k_x^2 -k_y^2) * \hat{\omega}
-        
-        Note: This resets the value in self.w when called
+            1/Re * (-k_x^2 -k_y^2) * \hat{\omega}
         """
         self.dwhdt[:, :] = self.dwhdt[:, :] - self.ReI*self.k2*self.wh[:, :]
         self.dwhdt_to_dwdt()
@@ -304,7 +304,7 @@ class Fluid(object):
     def _add_convection(self):
         """
         Convective term
-            N = d/dx \psi * d/dy \omega - d/dy \psi * d/dx \omega
+            d/dx \psi * d/dy \omega - d/dy \psi * d/dx \omega
         To prevent alliasing, we zero-pad the array before using the
         convolution theorem to evaluate it in physical space.
         """
