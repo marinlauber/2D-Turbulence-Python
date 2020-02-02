@@ -21,7 +21,6 @@ if __name__=="__main__":
 
     print("Starting interating on field.\n")
     start_time = t.time()
-    iterr = 0
     finish = 12.0
 
     # loop to solve

@@ -413,7 +413,6 @@ class Fluid(object):
 
     def run_live(self, stop, every=100):
         from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
-        iterr = 0
         plt.ion()
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -424,12 +423,11 @@ class Fluid(object):
         while(self.time<=stop):
             #  update using RK
             self.update()
-            iterr += 1
-            if(iterr % every == 0):
+            if(self.it % every == 0):
                 im.set_data(self.w)
                 fig.canvas.draw()
                 fig.canvas.flush_events()
-                print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f" %(iterr,
+                print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f" %(self.it,
                       self.time, stop-self.time, self.tke()))
 
 
