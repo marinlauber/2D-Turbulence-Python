@@ -20,6 +20,7 @@ class Fluid(object):
         self.Re = Re; self.ReI = 1./self.Re
         self.dt = dt
         self.time = 0.
+        self.it =0
         self.uptodate = False
         self.filterfac = 23.6
 
@@ -70,33 +71,9 @@ class Fluid(object):
             else:
                 print("Specified velocity field does not match grid initialized.")
 
-
-    def McWilliams1984(self):
-
-        # generate variable
-        self.k2 = self.kx[:self.nk]**2 + self.ky[:,np.newaxis]**2
-        self.fk = self.k2 != 0.0
-
-        # emsemble variance proportional to the prescribed scalar wavenumber function
-        ck = np.zeros((self.nx, self.nk))
-        ck[self.fk] = np.sqrt(self.k2[self.fk]*(1+(self.k2[self.fk]/36)**2))**(-1)
-        
-        # Gaussian random realization for each of the Fourier components of psi
-        psih = np.random.randn(self.nx, self.nk)*ck+\
-               1j*np.random.randn(self.nx, self.nk)*ck
-
-        # ṃake sure the stream function has zero mean
-        psi = np.fft.irfft2(psih)
-        psih = np.fft.rfft2(psi-psi.mean())
-        KEaux = self._spec_variance(psih)
-        psi = psih/np.sqrt(KEaux)
-
-        # inverse Laplacian in k-space
-        wh = self.k2 * psi
-        
-        # vorticity in physical space
-        self.w = np.fft.irfft2(wh)
-        # self.w = self.w/(0.5*abs(self.w).max())-1.
+        # populate array
+        self._get_psi()
+        self.w0 = self.w
 
 
     def init_solver(self, scheme="PADE-6"):
@@ -120,9 +97,32 @@ class Fluid(object):
         self.k2 = self.kx[:self.nk]**2 + self.ky[:,np.newaxis]**2
         self.fk = self.k2 != 0.0
 
-        # populate array
-        self._get_psi()
-        self.w0 = self.w
+
+    def McWilliams1984(self):
+
+        # generate variable
+        self.k2 = self.kx[:self.nk]**2 + self.ky[:,np.newaxis]**2
+        self.fk = self.k2 != 0.0
+
+        # emsemble variance proportional to the prescribed scalar wavenumber function
+        ck = np.zeros((self.nx, self.nk))
+        ck[self.fk] = np.sqrt(self.k2[self.fk]*(1+(self.k2[self.fk]/36)**2))**(-1)
+        
+        # Gaussian random realization for each of the Fourier components of psi
+        psih = np.random.randn(self.nx, self.nk)*ck+\
+               1j*np.random.randn(self.nx, self.nk)*ck
+
+        # ṃake sure the stream function has zero mean
+        psi = np.fft.irfft2(psih)
+        psih = np.fft.rfft2(psi-psi.mean())
+        KEaux = self._spec_variance(self.fltr*np.sqrt(self.k2)*psih)
+        psi = psih/np.sqrt(KEaux)
+
+        # inverse Laplacian in k-space
+        wh = self.k2 * psi
+        
+        # vorticity in physical space
+        self.w = np.fft.irfft2(wh)
 
 
     def _init_filter(self):
@@ -139,6 +139,7 @@ class Fluid(object):
             u = d/dy \psi
         """
         self.u = np.fft.irfft2(self.ky[:,np.newaxis]*np.fft.rfft2(self.psi))
+
 
     def get_v(self):
         """
@@ -186,6 +187,7 @@ class Fluid(object):
 
         self.time += self.dt
         self._cfl_limit()
+        self.it += 1
     
 
     def _get_psi(self):
@@ -211,7 +213,7 @@ class Fluid(object):
         
         Paramaters:
             a     : array of float
-                    values of the fiels at the grid points the array is assumed periodic
+                    values of the fields at the grid points the array is assumed periodic
                     such that the periodic point is NOT included
             dx    : float
                     grid spacing, must be constant
@@ -243,43 +245,44 @@ class Fluid(object):
         return diff
 
 
-    def _add_diffusion(self):
-        """
-        Diffusion term of the Navier-Stokes
-            D = p * 1/Re * (-k_x^2 -k_y^2) * \hat{\omega}
-
-        """
-        self.dwdt += self.ReI * ( self._ddx(self._ddx(self.w, self.dx), self.dx) +\
-                                  self._ddy(self._ddy(self.w, self.dy), self.dy) )
-
-
     def _add_convection(self):
         """
         Convective term
-            N = -d/dy \psi * d/dx \omega + d/dx \psi * d/dy \omega
+            -d/dy \psi * d/dx \omega + d/dx \psi * d/dy \omega
         To prevent alliasing, we zero-pad the array before using the
         convolution theorem to evaluate it in physical space.
         """
         self.dwdt = -1*self._ddy(self.psi, self.dy) * self._ddx(self.w, self.dx)
         self.dwdt +=   self._ddx(self.psi, self.dx) * self._ddy(self.w, self.dy)
 
+
+    def _add_diffusion(self):
+        """
+        Diffusion term of the Navier-Stokes
+            1/Re * (-k_x^2 -k_y^2) * \hat{\omega}
+        """
+        self.dwdt += self.ReI * ( self._ddx(self._ddx(self.w, self.dx), self.dx) +\
+                                  self._ddy(self._ddy(self.w, self.dy), self.dy) )
+
     
     def _spec_variance(self, ph):
-        # spectral filter
-        self._init_filter()
-
         # only half the spectrum for real ffts, needs spectral normalisation
-        var_dens = 2 * np.abs(self.fltr*np.sqrt(self.k2)*ph)**2 / (self.nx*self.ny)**2
+        var_dens = 2 * np.abs(ph)**2 / (self.nx*self.ny)**2
         var_dens[..., 0] /= 2
         var_dens[...,-1] /= 2
 
         return var_dens.sum(axis=(-2,-1))
 
 
-    def _tke(self):
+    def tke(self):
         psih = np.fft.rfft2(self.psi, axes=(-2,-1))
         ke = .5*self._spec_variance(np.sqrt(self.k2)*psih)
         return ke.sum()
+
+
+    def enstrophy(self):
+        eps = 0.5*abs(self.w)**2
+        return eps.sum(axis=(-2,-1))
 
 
     def _compute_spectrum(self, res):
@@ -308,6 +311,7 @@ class Fluid(object):
 
     def save_vort(self, folder, iter):
         s = np.zeros(self.ny); s[0]=self.time; s[1]=self.dt
+        s[2] =self.tke(); s[3] = self.enstrophy()
         np.savetxt(str(folder)+"vort_"+str("%06d"%iter)+".dat", np.vstack((s, self.w)))
 
 
@@ -335,7 +339,6 @@ class Fluid(object):
 
     def run_live(self, stop, every=100):
         from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
-        iterr = 0
         plt.ion()
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -346,13 +349,12 @@ class Fluid(object):
         while(self.time<=stop):
             #  update using RK
             self.update()
-            iterr += 1
-            if(iterr % every == 0):
+            if(self.it % every == 0):
                 im.set_data(self.w)
                 fig.canvas.draw()
                 fig.canvas.flush_events()
-                print(f"Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f" %(iterr,
-                      self.time, stop-self.time, self._tke()))
+                print(f"Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f. ENS: %f" %(self.it,
+                      self.time, stop-self.time, self.tke(), self.enstrophy()))
 
 
 # if __name__=="__main__":
