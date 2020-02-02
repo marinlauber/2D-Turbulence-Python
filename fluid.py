@@ -266,6 +266,7 @@ class Fluid(object):
         self.w0[:, :] = self.w[:, :]
 
         for k in range(s, 0, -1):
+        # for t, v, d in zip([1.,.75,1./3.],[0.,.25,2./3.],[1.,.25,2./3.]):
             # invert Poisson equation for the stream function (changes to k-space)
             self._get_psih()
 
@@ -277,7 +278,8 @@ class Fluid(object):
 
             # step in time
             self.w[:, :] = self.w0[:, :] + (self.dt/k) * self.dwdt[:, :]
-            # self._add_spec_filter()
+            # self.w[:, :] = (t*self.w0[:, :] + v*self.w[:, :] + d*self.dt*self.dwdt[:, :])
+ 
         self.time += self.dt
         self._cfl_limit()
         self.it += 1
@@ -290,15 +292,6 @@ class Fluid(object):
         """
         self.w_to_wh()
         self.psih[self.fk] = self.wh[self.fk] / self.k2[self.fk]
-
-
-    def _add_diffusion(self):
-        """
-        Diffusion term of the Navier-Stokes
-            1/Re * (-k_x^2 -k_y^2) * \hat{\omega}
-        """
-        self.dwhdt[:, :] = self.dwhdt[:, :] - self.ReI*self.k2*self.wh[:, :]
-        self.dwhdt_to_dwdt()
 
 
     def _add_convection(self):
@@ -330,6 +323,14 @@ class Fluid(object):
         jacpf = self.b_to_a(jacp)
         
         self.dwhdt[:, :] = jacpf[self.padder, :self.nk]*self.pad**(2) # this term is the result of padding
+
+    def _add_diffusion(self):
+        """
+        Diffusion term of the Navier-Stokes
+            1/Re * (-k_x^2 -k_y^2) * \hat{\omega}
+        """
+        self.dwhdt[:, :] = self.dwhdt[:, :] - self.ReI*self.k2*self.wh[:, :]
+        self.dwhdt_to_dwdt()
 
 
     def _add_spec_filter(self):
