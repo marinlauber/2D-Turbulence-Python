@@ -8,14 +8,14 @@ python valid.py
 ```
 This runs a simulation of the [Taylor-Green Vortex](https://en.wikipedia.org/wiki/Taylor%E2%80%93Green_vortex) for which we have an analytical solution. The output should look similar to this
 ```
-Starting interating on field.
+Starting integrating on field.
 
-Iteration 100, time 0.020564, time remaining 0.079436. TKE: 1.441, ENS: 23580.542
-Iteration 200, time 0.041258, time remaining 0.058742. TKE: 1.035, ENS: 16934.105
-Iteration 300, time 0.061970, time remaining 0.038030. TKE: 0.743, ENS: 12157.357
-Iteration 400, time 0.082698, time remaining 0.017302. TKE: 0.533, ENS:  8725.782
+Iteration 	 100, time 	 0.020, time remaining 	 0.079. TKE: 0.180  ENS: 23580.54
+Iteration 	 200, time 	 0.041, time remaining 	 0.058. TKE: 0.129  ENS: 16934.10
+Iteration 	 300, time 	 0.061, time remaining 	 0.038. TKE: 0.092  ENS: 12157.35
+Iteration 	 400, time 	 0.082, time remaining 	 0.017. TKE: 0.066  ENS: 8725.782
 
-Execution time for 484 iterations is 11.21 seconds.
+Execution time for 484 iterations is 2.737 seconds.
 The L2-norm of the Error in the Taylor-Green vortex on a 128x128 grid is 1.362e-10.
 The Linf-norm of the Error in the Taylor-Green vortex on a 128x128 grid is 2.725e-10.
 ```
@@ -44,8 +44,8 @@ to switch to the desired branch. The solver has been implemented such that funct
 The simulation is initialized by defining a grid, and specifying the Reynolds number of the flow
 ```python
 flow = Fluid(nx=64, ny=64, Re=1)
-flow.init_field("Taylor-Green")
 flow.init_solver()
+flow.init_field("Taylor-Green")
 ```
 Here we have initialized the Taylor-Green vortex. The solver initiation generates all the working arrays and transforms the required initial conditions. Simulations can also be initialized using results from previous simulations (these need to have been saved with `flow.save_vort("PATH/", ID)`)
 ```python
@@ -58,9 +58,9 @@ here we reset the flow timer using the time value saved in the `vort_ID.dat` fil
 # loop to solve
 while(flow.time<=finish):
     flow.update()
-    iterr += 1
-    if(iterr % 1000 == 0):
-    print("Iteration \t %d, time \t %f, time remaining \t %f" %(iterr, flow.time, finish-flow.time))
+    if(flow.it % 500 == 0):
+        print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f, ENS: %f" %(flow.it,
+              flow.time, finish-flow.time, flow.tke(), flow.enstrophy()))
 ```
 Small simulations can also be run live, that is showing the evolution of the vorticity field
 ```python

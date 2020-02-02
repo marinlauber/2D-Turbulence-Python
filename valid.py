@@ -18,9 +18,8 @@ if __name__=="__main__":
     flow.init_solver()
     flow.init_field("Taylor-Green")
 
-    print("Starting interating on field.\n")
+    print("Starting integrating on field.\n")
     start_time = t.time()
-    iterr = 0
     finish = 0.1
 
     # loop to solve

@@ -30,27 +30,19 @@ if __name__=="__main__":
     q = -np.exp(-((flow.x-np.pi)**2 + (4.0*(flow.y[:,np.newaxis]-np.pi))**2)/(np.pi/3.0)**2)
     # q = np.loadtxt("MW.dat")
     flow.init_field(field=q)
-    # flow._get_psih()
-    # print(flow.tke())
-    # flow.display()
-    # stop 
 
-    print("Starting interating on field.\n")
+    print("Starting integrating on field.\n")
     start_time = t.time()
-    iterr = 0
     finish = 10.0
 
     # loop to solve
-    # while(flow.time<=finish):
-    #     flow.update()
-    #     iterr += 1
-    #     if(flow.it % 500 == 0):
-    #         print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f, ENS: %f" %(flow.it,
-    #                 flow.time, finish-flow.time, flow.tke(), flow.enstrophy()))
+    while(flow.time<=finish):
+        flow.update()
+        if(flow.it % 500 == 0):
+            print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f, ENS: %f" %(flow.it,
+                    flow.time, finish-flow.time, flow.tke(), flow.enstrophy()))
     #         flow.write(folder="Dat/", iter=flow.it/500)
-    flow.run_live(finish, every=1000)
+    # flow.run_live(finish, every=1000)
 
     end_time = t.time()
     print("\nExecution time for %d iterations is %f seconds." %(flow.it, end_time-start_time))
-
-    flow.display()
