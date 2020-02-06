@@ -138,7 +138,7 @@ class Fluid(object):
         Spectral differentiation to get:
             u = d/dy \psi
         """
-        self.u = np.fft.irfft2(self.ky[:,np.newaxis]*np.fft.rfft2(self.psi))
+        self.u = np.fft.irfft2(1j*self.ky[:,np.newaxis]*np.fft.rfft2(self.psi))
 
 
     def get_v(self):
@@ -146,7 +146,7 @@ class Fluid(object):
         Spectral differentiation to get:
             v = -d/dx \psi
         """
-        self.v = -np.fft.irfft2(self.kx[:self.nk]*np.fft.rfft2(self.psi))
+        self.v = -np.fft.irfft2(1j*self.kx[:self.nk]*np.fft.rfft2(self.psi))
 
 
     def _cfl_limit(self):
@@ -328,11 +328,11 @@ class Fluid(object):
         plt.show()
 
 
-    def show_vel(self):
+    def display_vel(self):
         self.get_u()
         self.get_v()
         plt.figure()
-        plt.quiver(self.x, self.y, self.u, self.v)
+        plt.streamplot(self.x, self.y, self.u, self.v)
         plt.xlabel("x"); plt.ylabel("y")
         plt.show()
 
