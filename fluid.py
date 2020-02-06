@@ -194,12 +194,12 @@ class Fluid(object):
 
 
     def get_u(self):
-        self.uh[:,:] = self.ky[:,np.newaxis]*self.psih[:, :]
+        self.uh[:,:] = 1j*self.ky[:,np.newaxis]*self.psih[:, :]
         self.uh_to_u()
 
 
     def get_v(self):
-        self.vh[:,:] = -self.kx[:self.nk]*self.psih[:, :]
+        self.vh[:,:] = -1j*self.kx[:self.nk]*self.psih[:, :]
         self.vh_to_v()
         
 
