@@ -140,7 +140,7 @@ class Fluid(object):
         Spectral differentiation to get:
             u = d/dy \psi
         """
-        self.u = np.fft.irfft2(self.ky[:,np.newaxis]*self.psih)
+        self.u = np.fft.irfft2(1j*self.ky[:,np.newaxis]*self.psih)
 
 
     def get_v(self):
@@ -148,7 +148,7 @@ class Fluid(object):
         Spectral differentiation to get:
             v = -d/dx \psi
         """
-        self.v = -np.fft.irfft2(self.kx[:self.nk]*self.psih)
+        self.v = -np.fft.irfft2(1j*self.kx[:self.nk]*self.psih)
 
 
     def McWilliams1984(self):
