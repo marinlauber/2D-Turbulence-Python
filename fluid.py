@@ -62,7 +62,9 @@ class Fluid(object):
             self.k2
         except AttributeError:
             self.k2 = self.kx[:self.nk]**2 + self.ky[:,np.newaxis]**2
-            self.fk = self.k2 != 0.0
+            self.k2I = self._empty_imag((self.nx, self.nk))
+            fk = self.k2 != 0.0
+            self.k2I[fk]  = 1./self.k2[fk]
 
         # utils
         self.mx = int(self.pad * self.nx)
@@ -88,13 +90,13 @@ class Fluid(object):
         self.dwhdt = self._empty_imag()
 
         # assign padded arrays for non-linear term
-        self.a = self._empty_imag((self.mx,self.mk))
+        self.a  = self._empty_imag((self.mx,self.mk))
         self.a1 = self._empty_imag((self.mx,self.mk))
         self.a2 = self._empty_imag((self.mx,self.mk))
         self.a3 = self._empty_imag((self.mx,self.mk))
         self.a4 = self._empty_imag((self.mx,self.mk))
         
-        self.b = self._empty_real((self.mx,self.my))
+        self.b  = self._empty_real((self.mx,self.my))
         self.b1 = self._empty_real((self.mx,self.my))
         self.b2 = self._empty_real((self.mx,self.my))
         self.b3 = self._empty_real((self.mx,self.my))
@@ -210,11 +212,11 @@ class Fluid(object):
         """
         # generate variable
         self.k2 = self.kx[:self.nk]**2 + self.ky[:,np.newaxis]**2
-        self.fk = self.k2 != 0.0
+        fk = self.k2 != 0.0
 
         # ensemble variance proportional to the prescribed scalar wavenumber function
         ck = np.zeros((self.nx, self.nk))
-        ck[self.fk] = np.sqrt(self.k2[self.fk]*(1+(self.k2[self.fk]/36)**2))**(-1)
+        ck[fk] = np.sqrt(self.k2[fk]*(1+(self.k2[fk]/36)**2))**(-1)
         
         # Gaussian random realization for each of the Fourier components of psi
         psih = np.random.randn(self.nx, self.nk)*ck+\
@@ -291,7 +293,7 @@ class Fluid(object):
             hat{\psi} = \hat{\omega} / (k_x^2 + k_y^2)
         """
         self.w_to_wh()
-        self.psih[self.fk] = self.wh[self.fk] / self.k2[self.fk]
+        self.psih[:,:] = self.wh[:,:] * self.k2I[:,:]
 
 
     def _add_convection(self):
