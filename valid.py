@@ -18,7 +18,7 @@ if __name__=="__main__":
     flow.init_solver()
     flow.init_field("Taylor-Green")
 
-    print("Starting integrating on field.\n")
+    print("Starting integration on field.\n")
     start_time = t.time()
     finish = 0.1
 
@@ -31,24 +31,14 @@ if __name__=="__main__":
         #  print every 100 iterations
         if (flow.it % 100 == 0):
             print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f, ENS: %f" %(flow.it,
-<<<<<<< HEAD
-                  flow.time, finish-flow.time, flow.tke(), flow.enstrophy()))#
-    # flow.run_live(finish, every=1000)
-=======
                   flow.time, finish-flow.time, flow.tke(), flow.enstrophy()))
     # flow.run_live(finish, every=100)
->>>>>>> c6ef2771b957183b7abfd84d82b96eb71875def1
 
     end_time = t.time()
     print("\nExecution time for %d iterations is %f seconds." %(flow.it, end_time-start_time))
     
     # get final results
-<<<<<<< HEAD
     w_n = flow.w.copy()
-=======
-    flow.wh_to_w()
-    w_n = flow.w
->>>>>>> c6ef2771b957183b7abfd84d82b96eb71875def1
 
     # exact solution
     flow.init_field("Taylor-Green", t=flow.time)
