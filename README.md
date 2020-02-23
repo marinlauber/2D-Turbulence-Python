@@ -13,30 +13,30 @@ These instructions will get you a copy of the project up and running on your loc
 
 ### Prerequisites
 
-To run the code provided in this repository you will need standard python packages, such as `numpy` and `matplotlib`. These should already be installed on most machines.
+To run the code provided in this repository, you will need standard python packages, such as `numpy` and `matplotlib`. These should already be installed on most machines.
 
-To use the `fftw` branch of this code (the fast one!), you will need to have `pyFFTW` installed. Instalation instructions can be found [here](https://pypi.org/project/pyFFTW/).
+To use the `fftw` branch of this code (the fast one!), you will need to have `pyFFTW` installed. Installation instructions can be found [here](https://pypi.org/project/pyFFTW/).
 
 This repository contains three (as of today) branches, the `master` branch that includes the pseudo-spectral code running with standard python libraries, the `CDS` branch that contains the high-order (up to 6th) compact difference scheme version and the `fftw` branch. When the repository has been cloned/downloaded, you can switch between branches using
 ```
-git checkout CDS (or fftw)
+git checkout fftw (or CDS)
 ```
-to switch to the desired branch. The solver has been implemented such that functions calls perform exact same tasks on each branches.
+to switch to the desired branch. The solver is implemented such that functions calls perform the same tasks on each branch.
 
 ### Running The Tests
 
-Once you are happy with the version you are going to use check that everything works by running the validation script
+Once you are happy with the version you are going to use, check that everything works by running the validation script
 ```
 python valid.py
 ```
 This runs a simulation of the [Taylor-Green Vortex](https://en.wikipedia.org/wiki/Taylor%E2%80%93Green_vortex) for which we have an analytical solution. The output should look similar to this
 ```
-Starting integrating on field.
+Starting integration on field.
 
-Iteration 	 100, time 	 0.020, time remaining 	 0.079. TKE: 0.180  ENS: 23580.54
-Iteration 	 200, time 	 0.041, time remaining 	 0.058. TKE: 0.129  ENS: 16934.10
-Iteration 	 300, time 	 0.061, time remaining 	 0.038. TKE: 0.092  ENS: 12157.35
-Iteration 	 400, time 	 0.082, time remaining 	 0.017. TKE: 0.066  ENS: 8725.782
+Iteration    100, time   0.020, time remaining   0.079. TKE: 0.180  ENS: 23580.54
+Iteration    200, time   0.041, time remaining   0.058. TKE: 0.129  ENS: 16934.10
+Iteration    300, time   0.061, time remaining   0.038. TKE: 0.092  ENS: 12157.35
+Iteration    400, time   0.082, time remaining   0.017. TKE: 0.066  ENS: 8725.782
 
 Execution time for 484 iterations is 2.737 seconds.
 The L2-norm of the Error in the Taylor-Green vortex on a 128x128 grid is 1.362e-10.
@@ -88,8 +88,8 @@ For a description of the theory behind this code, or to run other cases, such as
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
 
-## Acknowledgments
+<!-- ## Acknowledgments
 
 * Hat tip to anyone whose code was used
 * Inspiration
-* etc
+* etc -->
