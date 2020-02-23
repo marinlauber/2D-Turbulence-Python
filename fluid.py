@@ -215,8 +215,8 @@ class Fluid(object):
         # iniitalise field
         self.w0 = self.wh
 
-        for t, v, d in zip([1.,.75,1./3.],[0.,.25,2./3.],[1.,.25,2./3.]):
-        # for k in range(s, 0, -1):
+        # for t, v, d in zip([1.,.75,1./3.],[0.,.25,2./3.],[1.,.25,2./3.]):
+        for k in range(s, 0, -1):
             # invert Poisson equation for the stream function
             self._get_psih()
 
@@ -224,11 +224,11 @@ class Fluid(object):
             self._add_convection()
 
             # add diffusion
-            # self._add_diffusion()
+            self._add_diffusion()
 
             # step in time
-            self.wh = (t*self.w0 + v*self.wh + d*self.dt*self.dwhdt) / (1+d*self.dt*self.ReI*self.k2)
-            # self.wh = self.w0 + (self.dt/k) * self.dwhdt
+            # self.wh = (t*self.w0 + v*self.wh + d*self.dt*self.dwhdt) / (1+d*self.dt*self.ReI*self.k2)
+            self.wh = self.w0 + (self.dt/k) * self.dwhdt
 
         self.time += self.dt
         self.it += 1
@@ -333,7 +333,7 @@ class Fluid(object):
     def plot_spec(self,res=200):
         self._compute_spectrum(200)
         plt.figure(figsize=(6,6))
-        plt.plot(self.k, self.E, '-k', label="E(k)")
+        plt.loglog(self.k, self.E, '-k', label="E(k)")
         plt.xlabel("k")
         plt.ylabel("E(k)")
         plt.legend()
@@ -391,6 +391,7 @@ class Fluid(object):
                 im.set_data(self.w)
                 fig.canvas.draw()
                 fig.canvas.flush_events()
+                plt.pause(1e-9)
                 print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f" %(iterr,
                       self.time, stop-self.time, self.tke()))
 
