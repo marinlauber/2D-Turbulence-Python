@@ -7,6 +7,7 @@ python:
 install:
   - pip install -r requirements.txt
 script:
-  - python valid.py
+  #- python valid.py
+  - coverage run --source=valid.py
 after_success:
   - coveralls
