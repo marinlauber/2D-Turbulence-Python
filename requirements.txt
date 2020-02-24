@@ -1,6 +1,4 @@
-pytest
-pytest-cov
-coveralls
 numpy
 matplotlib
 pyfftw
+coveralls
