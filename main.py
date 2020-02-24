@@ -9,7 +9,7 @@ __email__  = "M.Lauber@soton.ac.uk"
 
 import time as t
 import numpy as np
-from fluid import Fluid
+from src.fluid import Fluid
 
 if __name__=="__main__":
 
