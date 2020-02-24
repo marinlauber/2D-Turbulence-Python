@@ -3,7 +3,7 @@
 
 [![Build Status](https://travis-ci.org/marinlauber/OOpyPST.svg?branch=master)](https://travis-ci.org/marinlauber/OOpyPST)
 
-[![Coverage Status](https://coveralls.io/repos/github/marinlauber/OOpyPST/badge.svg?branch=master)](https://coveralls.io/github/marinlauber/OOpyPST?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/marinlauber/OOpyPST/badge.svg?branch=fftw)](https://coveralls.io/github/marinlauber/OOpyPST?branch=fftw)
 
 Pseudo-spectral collocation code for two-dimensional turbulence simulations written in object-oriented python.
 
