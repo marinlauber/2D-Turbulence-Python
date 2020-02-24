@@ -1,6 +1,5 @@
 pytest
 pytest-cov
-python-coverage
 coveralls
 numpy
 matplotlib
