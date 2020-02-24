@@ -6,14 +6,8 @@ python:
   - "3.8"
 install:
   - pip install -r requirements.txt
+  - pip install coverage
 script:
-  - python valid.py
+  - coverage - run valid.py
 after_success:
   - coveralls
-deploy:
-  provider: pages
-  skip_cleanup: true
-  github_token: $github_token
-  local_dir: build
-  on:
-    branch: master
