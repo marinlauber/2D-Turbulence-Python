@@ -38,12 +38,11 @@ if __name__=="__main__":
     print("\nExecution time for %d iterations is %f seconds." %(flow.it, end_time-start_time))
     
     # get final results
-    flow.wh_to_w()
-    w_n = flow.w
+    w_n = flow.w.copy()
 
     # exact solution
-    flow.init_field("TG", t=flow.time)
-
+    flow.init_field("Taylor-Green", t=flow.time)
+    
     # L2-norm and exit 
     L2 = np.sqrt((flow.nx*flow.ny)**(-1)*np.einsum('ij->', (np.abs(flow.w - w_n))**2))
     Linf = np.max(np.abs(flow.w - w_n))

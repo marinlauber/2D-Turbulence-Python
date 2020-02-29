@@ -15,11 +15,11 @@ These instructions will get you a copy of the project up and running on your loc
 
 To run the code provided in this repository, you will need standard python packages, such as `numpy` and `matplotlib`. These should already be installed on most machines.
 
-To use the `fftw` branch of this code (the fast one!), you will need to have `pyFFTW` installed. Installation instructions can be found [here](https://pypi.org/project/pyFFTW/).
+To use the `master` branch of this code (the fast one!), you will need to have `pyFFTW` installed. Installation instructions can be found [here](https://pypi.org/project/pyFFTW/).
 
-This repository contains three (as of today) branches, the `master` branch that includes the pseudo-spectral code running with standard python libraries, the `CDS` branch that contains the high-order (up to 6th) compact difference scheme version and the `fftw` branch. When the repository has been cloned/downloaded, you can switch between branches using
+This repository contains three (as of today) branches, the `master` branch that includes the pseudo-spectral code running with the `pyFFTW` library, the `CDS` branch that contains the high-order (up to 6th) compact difference scheme version and the `numpy` branch that contains a numpy-only version of the code. When the repository has been cloned/downloaded, you can switch between branches using
 ```
-git checkout fftw (or CDS)
+git checkout numpy (or CDS)
 ```
 to switch to the desired branch. The solver is implemented such that functions calls perform the same tasks on each branch.
 
