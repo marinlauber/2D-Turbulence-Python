@@ -138,14 +138,14 @@ class Fluid(object):
 
     def init_field(self, field="Taylor-Green", t=0.0, kappa=2., delta=0.005, sigma= 15./np.pi):
         """
-        Inital the vorticity field. Different fields are hard coded, i.e. Taylor-Green vortex, double shear layer,
+        Initial the vorticity field. Different fields are hard coded, i.e. Taylor-Green vortex, double shear layer,
         McWilliams random vorticity realisation. User-defined fields can also be passed.
 
             Params:
                 field : string
-                    - Type of field to initialise, or actuall field as a numpy array
+                    - Type of field to initialise, or actual field as a numpy array
                 t : float
-                    - time at which to compute field (onlt for the Taylor-Green solution)
+                    - time at which to compute field (only for the Taylor-Green solution)
                 other : varies
                     - additional parameters, field dependent
         """
@@ -216,7 +216,7 @@ class Fluid(object):
 
         # ensemble variance proportional to the prescribed scalar wavenumber function
         ck = np.zeros((self.nx, self.nk))
-        ck[fk] = np.sqrt(self.k2[fk]*(1+(self.k2[fk]/36)**2))**(-1)
+        ck[fk] = (np.sqrt(self.k2[fk])*(1+(self.k2[fk]/36)**2))**(-1)
         
         # Gaussian random realization for each of the Fourier components of psi
         psih = np.random.randn(self.nx, self.nk)*ck+\
@@ -365,6 +365,16 @@ class Fluid(object):
         return eps.sum(axis=(-2,-1))
 
 
+    def perturb(self, cutoff=0.8, A=10):
+        """
+        Randomly pertubes the modes higher than the cutoff modes
+        """
+        self.w_to_wh()
+        fk = np.sqrt(self.k2) >= cutoff*max(self.nx, self.nk)
+        self.wh[fk] += A*(2*np.random.rand(self.nx, self.nk)[fk]-1)
+        self.wh_to_w()
+
+
     def _compute_spectrum(self, res):
         self._get_psih()
         # angle averaged TKE spectrum
@@ -419,7 +429,7 @@ class Fluid(object):
         plt.show()
 
 
-    def run_live(self, stop, every=100):
+    def run_live(self, stop, s=3, every=100):
         from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
         plt.ion()
         fig = plt.figure()
@@ -430,13 +440,13 @@ class Fluid(object):
         ax.set_xticks([]); ax.set_yticks([])
         while(self.time<=stop):
             #  update using RK
-            self.update()
+            self.update(s=s)
             if(self.it % every == 0):
                 im.set_data(self.w)
                 fig.canvas.draw()
                 fig.canvas.flush_events()
                 plt.pause(1e-9)
-                print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f" %(iterr,
+                print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f" %(self.it,
                       self.time, stop-self.time, self.tke()))
 
 
