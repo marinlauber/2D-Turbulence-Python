@@ -47,17 +47,39 @@ class Fluid(object):
         self.x, self.dx = np.linspace(0, 2*np.pi, nx, endpoint=False, retstep=True)
         self.y, self.dy = np.linspace(0, 2*np.pi, ny, endpoint=False, retstep=True)
 
-        # fourier grid
-        self.kx = np.fft.fftfreq(self.nx, d=1./self.nx)
-        self.ky = np.fft.fftfreq(self.ny, d=1./self.ny)
+    
+    def _wavenumber(self):
+        kx = np.fft.fftfreq(self.nx, d=1./self.nx)
+        ky = np.fft.fftfreq(self.ny, d=1./self.ny)
+        if self.order!="spectral":
+            kx = self.k_prime(kx, self.dx, self.coeffs[self.order])
+            ky = self.k_prime(ky, self.dy, self.coeffs[self.order])
+        return kx, ky
+
+    
+    def k_prime(self, kx, dx, coeffs=(1./3, 0., 14./9, 1./9, 0.)):
+        alpha, beta, a, b, c = coeffs
+        kp = (a * np.sin(kx*dx) + (.5*b)*np.sin(2*kx*dx) + (c/3*np.sin(3*kx*dx)))
+        kp /= (1 + 2*alpha*np.cos(kx*dx) + 2*beta*np.cos(2*kx*dx)) / dx
+        return kp
 
 
-    def init_solver(self):
+    def init_solver(self, order="spectral"):
         """
         Initalizes storage arrays and FFT objects. This is relatively expansive
         as pyFFTW find the fastest way to perform the transfoms, but it is only
         called once.
         """
+        # numerical method
+        self.order = order
+        self.coeffs = {"CDS2":  (   0, 0,    1,     0, 0),
+                       "CDS4":  (   0, 0, 4./3, -1./3, 0),
+                       "Pade4": (1./4, 0, 3./2,     0, 0),
+                       "Pade6": (1./3, 0, 14./9, 1./9, 0.)}
+
+
+         # fourier grid
+        self.kx, self.ky = self._wavenumber()
         try:    
             self.k2
         except AttributeError:
@@ -79,12 +101,12 @@ class Fluid(object):
         self.u = self._empty_real()
         self.v = self._empty_real()
         self.w = self._empty_real()
-        self.w0 = self._empty_real()
-        self.dwdt = self._empty_real()
+        # self.w0 = self._empty_real()
+        # self.dwdt = self._empty_real()
 
         self.uh = self._empty_imag()
         self.vh = self._empty_imag()
-        self.wh = self._empty_imag()
+        self.wh0 = self._empty_imag()
         self.wh = self._empty_imag()
         self.psih = self._empty_imag()
         self.dwhdt = self._empty_imag()
@@ -108,8 +130,8 @@ class Fluid(object):
                                    axes=(-2,-1))
         self.wh_to_w = pyfftw.FFTW(self.wh,  self.w, threads=self.fftw_num_threads,
                                    direction='FFTW_BACKWARD', axes=(-2,-1))
-        self.dwhdt_to_dwdt = pyfftw.FFTW(self.dwhdt, self.dwdt, threads=self.fftw_num_threads,
-                                         direction='FFTW_BACKWARD', axes=(-2,-1))
+        # self.dwhdt_to_dwdt = pyfftw.FFTW(self.dwhdt, self.dwdt, threads=self.fftw_num_threads,
+        #                                  direction='FFTW_BACKWARD', axes=(-2,-1))
         self.u_to_uh = pyfftw.FFTW(self.u,  self.uh, threads=self.fftw_num_threads,
                                    axes=(-2,-1))
         self.uh_to_u = pyfftw.FFTW(self.uh, self.u, threads=self.fftw_num_threads,
@@ -138,14 +160,14 @@ class Fluid(object):
 
     def init_field(self, field="Taylor-Green", t=0.0, kappa=2., delta=0.005, sigma= 15./np.pi):
         """
-        Initial the vorticity field. Different fields are hard coded, i.e. Taylor-Green vortex, double shear layer,
+        Inital the vorticity field. Different fields are hard coded, i.e. Taylor-Green vortex, double shear layer,
         McWilliams random vorticity realisation. User-defined fields can also be passed.
 
             Params:
                 field : string
-                    - Type of field to initialise, or actual field as a numpy array
+                    - Type of field to initialise, or actuall field as a numpy array
                 t : float
-                    - time at which to compute field (only for the Taylor-Green solution)
+                    - time at which to compute field (onlt for the Taylor-Green solution)
                 other : varies
                     - additional parameters, field dependent
         """
@@ -168,6 +190,8 @@ class Fluid(object):
                 self.w[:,:] = field
             else:
                 print("Specified velocity field does not match grid initialized.")
+        # transform
+        self.w_to_wh()
 
 
     # bit-aligned storage arrays for pyFFTW
@@ -223,8 +247,8 @@ class Fluid(object):
                1j*np.random.randn(self.nx, self.nk)*ck
 
         # ṃake sure the stream function has zero mean
-        psi = np.fft.irfft2(psih)
-        psih = np.fft.rfft2(psi-psi.mean())
+        # psi = np.fft.irfft2(psih)
+        # psih = np.fft.rfft2(psi-psi.mean())
         KEaux = self._spec_variance(self.fltr*np.sqrt(self.k2)*psih)
         psi = psih/np.sqrt(KEaux)
 
@@ -268,7 +292,7 @@ class Fluid(object):
                 - desired order of the method, default is 3rd order
         """
         # iniitalise field
-        self.w0[:, :] = self.w[:, :]
+        self.wh0[:, :] = self.wh[:, :]
 
         for k in range(s, 0, -1):
         # for t, v, d in zip([1.,.75,1./3.],[0.,.25,2./3.],[1.,.25,2./3.]):
@@ -282,7 +306,7 @@ class Fluid(object):
             self._add_diffusion()
 
             # step in time
-            self.w[:, :] = self.w0[:, :] + (self.dt/k) * self.dwdt[:, :]
+            self.wh[:, :] = self.wh0[:, :] + (self.dt/k) * self.dwhdt[:, :]
             # self.w[:, :] = (t*self.w0[:, :] + v*self.w[:, :] + d*self.dt*self.dwdt[:, :])
  
         self.time += self.dt
@@ -295,7 +319,6 @@ class Fluid(object):
         Spectral stream-function from spectral vorticity
             psi = omega / (k_x^2 + k_y^2)
         """
-        self.w_to_wh()
         self.psih[:,:] = self.wh[:,:] * self.k2I[:,:]
 
 
@@ -338,7 +361,6 @@ class Fluid(object):
             1/Re * (-k_x^2 -k_y^2) * omega
         """
         self.dwhdt[:, :] = self.dwhdt[:, :] - self.ReI*self.k2*self.wh[:, :]
-        self.dwhdt_to_dwdt()
 
 
     def _add_spec_filter(self):
@@ -361,18 +383,10 @@ class Fluid(object):
 
 
     def enstrophy(self):
-        eps = .5*abs(self.w)**2
+        wh = self.wh[:,:]
+        w = np.fft.irfft2(wh,axes=(-2,-1))
+        eps = .5*abs(w)**2
         return eps.sum(axis=(-2,-1))
-
-
-    def perturb(self, cutoff=0.8, A=10):
-        """
-        Randomly pertubes the modes higher than the cutoff modes
-        """
-        self.w_to_wh()
-        fk = np.sqrt(self.k2) >= cutoff*max(self.nx, self.nk)
-        self.wh[fk] += A*(2*np.random.rand(self.nx, self.nk)[fk]-1)
-        self.wh_to_w()
 
 
     def _compute_spectrum(self, res):
@@ -429,7 +443,7 @@ class Fluid(object):
         plt.show()
 
 
-    def run_live(self, stop, s=3, every=100):
+    def run_live(self, stop, every=100):
         from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
         plt.ion()
         fig = plt.figure()
@@ -440,7 +454,7 @@ class Fluid(object):
         ax.set_xticks([]); ax.set_yticks([])
         while(self.time<=stop):
             #  update using RK
-            self.update(s=s)
+            self.update()
             if(self.it % every == 0):
                 im.set_data(self.w)
                 fig.canvas.draw()
