@@ -44,6 +44,7 @@ def test_update():
     while(flow.time<=0.1):
         flow.update()
     # get final results
+    flow.wh_to_w()
     w_n = flow.w.copy()
     # exact solution
     flow.init_field("Taylor-Green", t=flow.time)

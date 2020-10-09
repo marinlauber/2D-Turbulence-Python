@@ -17,6 +17,16 @@ To run the code provided in this repository, you will need standard python packa
 
 To use the `master` branch of this code (the fast one!), you will need to have `pyFFTW` installed. Installation instructions can be found [here](https://pypi.org/project/pyFFTW/).
 
+Alternatively, you can create a new conda environment using the `environment.yml` file provided. First, got in the '2D-Turbulence-Python' cloned repository and creat the new environment
+```
+$ conda env create -f environment.yml
+```
+This will create a new conda environment called `2D-Turbulence-Python`. Then activate it
+```
+$ conda activate 2D-Turbulence-Python
+```
+This will install all the required packages and allows you to use this repo.
+
 This repository contains three (as of today) branches, the `master` branch that includes the pseudo-spectral code running with the `pyFFTW` library, the `CDS` branch that contains the high-order (up to 6th) compact difference scheme version and the `numpy` branch that contains a numpy-only version of the code. When the repository has been cloned/downloaded, you can switch between branches using
 ```
 git checkout numpy (or CDS)
@@ -43,6 +53,12 @@ The L2-norm of the Error in the Taylor-Green vortex on a 128x128 grid is 1.362e-
 The Linf-norm of the Error in the Taylor-Green vortex on a 128x128 grid is 2.725e-10.
 ```
 You should get errors in both norms close to the values displayed above.
+
+This repo also contains some more basic test, that can be run using `pytest`
+
+```
+$ pytest
+```
 
 ## Using the code
 

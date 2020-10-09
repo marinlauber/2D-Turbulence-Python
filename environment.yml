@@ -1,0 +1,11 @@
+name: 2D-Turbulence-Python
+channels:
+    - conda-forge
+dependencies:
+    - python=3.6
+    - numpy
+    - matplotlib
+    - pytest
+    - pip
+    - pip:
+        - pyfftw
