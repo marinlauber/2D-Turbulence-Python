@@ -90,7 +90,7 @@ flow.run_live(finish, every=100)
 
 ## Additional Content
 
-For a description of the theory behind this code, or to run other cases, such as a double shear layer, or decaying isotropic turbulence, look at this [notebook](Theory.ipynb).
+For a description of the theory behind this code, or to run other cases, such as a double shear layer, or decaying isotropic turbulence, look at [this](https://marinlauber.github.io/2D-Turbulence-Python/).
 
 <!-- <p align="center">
  <img src="shearlayer.png" width="400"> 
