@@ -10,6 +10,7 @@ __email__  = "M.Lauber@soton.ac.uk"
 import numpy as np
 import matplotlib.pyplot as plt
 import pyfftw
+from src.field import _spec_variance
 
 class Fluid(object):
 
@@ -42,6 +43,7 @@ class Fluid(object):
 
         self.FFTW = True
         self.fftw_num_threads = 6
+        self.forced = False
 
         # we assume 2pi periodic domain in each dimensions
         self.x, self.dx = np.linspace(0, 2*np.pi, nx, endpoint=False, retstep=True)
@@ -101,13 +103,13 @@ class Fluid(object):
         self.u = self._empty_real()
         self.v = self._empty_real()
         self.w = self._empty_real()
-        # self.w0 = self._empty_real()
-        # self.dwdt = self._empty_real()
+        self.f = self._empty_real()
 
         self.uh = self._empty_imag()
         self.vh = self._empty_imag()
         self.wh0 = self._empty_imag()
         self.wh = self._empty_imag()
+        self.fh = self._empty_imag()
         self.psih = self._empty_imag()
         self.dwhdt = self._empty_imag()
 
@@ -138,6 +140,8 @@ class Fluid(object):
                                    direction='FFTW_BACKWARD', axes=(-2,-1))
         self.v_to_vh = pyfftw.FFTW(self.v,  self.vh, threads=self.fftw_num_threads,
                                    axes=(-2,-1))
+        self.f_to_fh = pyfftw.FFTW(self.f,  self.fh, threads=self.fftw_num_threads,
+                                   axes=(-2,-1))
         self.vh_to_v = pyfftw.FFTW(self.vh, self.v, threads=self.fftw_num_threads,
                                    direction='FFTW_BACKWARD', axes=(-2,-1))
         self.b_to_a = pyfftw.FFTW(self.b, self.a, threads=self.fftw_num_threads,
@@ -158,34 +162,15 @@ class Fluid(object):
             self._init_filter()
     
 
-    def init_field(self, field="Taylor-Green", t=0.0, kappa=2., delta=0.005, sigma= 15./np.pi):
+    def init_field(self, field):
         """
-        Inital the vorticity field. Different fields are hard coded, i.e. Taylor-Green vortex, double shear layer,
-        McWilliams random vorticity realisation. User-defined fields can also be passed.
+        Inital the vorticity field. 
 
             Params:
-                field : string
-                    - Type of field to initialise, or actuall field as a numpy array
-                t : float
-                    - time at which to compute field (onlt for the Taylor-Green solution)
-                other : varies
-                    - additional parameters, field dependent
+                field : array
+                    - actuall field as a numpy array
         """
-        if(type(field)==str):
-            if(field=="TG" or field=="Taylor-Green"):
-                self.w[:,:] = 2 * kappa * np.cos(kappa * self.x) * np.cos(kappa * self.y[:, np.newaxis]) *\
-                              np.exp(-2 * kappa**2 * t / self.Re)
-            elif(field=="SL" or field=="Shear Layer"):
-                self.w[:,:] = delta * np.cos(self.x) - sigma * np.cosh(sigma * (self.y[:,np.newaxis] -\
-                              0.5*np.pi))**(-2)
-                self.w [:,:]+= delta * np.cos(self.x) + sigma * np.cosh(sigma * (1.5*np.pi -\
-                               self.y[:,np.newaxis]))**(-2)
-            elif(field=="McWilliams" or field=="MW84"):
-                self.McWilliams1984()
-            else:
-                print("The specified field type %s is unknown.\nAvailable initial fields are"+\
-                      ": \"Taylor-Green\", \"Shear Layer\"." % field)
-        elif(type(field)==np.ndarray):
+        if(type(field)==np.ndarray):
             if(field.shape==(self.nx, self.ny)):
                 self.w[:,:] = field
             else:
@@ -227,38 +212,7 @@ class Fluid(object):
     def get_v(self):
         self.vh[:,:] = -1j*self.kx[:self.nk]*self.psih[:, :]
         self.vh_to_v()
-        
-
-    def McWilliams1984(self):
-        """
-        Generates McWilliams vorticity field, see:
-            McWilliams (1984), "The emergence of isolated coherent vortices in turbulent flow"
-        """
-        # generate variable
-        self.k2 = self.kx[:self.nk]**2 + self.ky[:,np.newaxis]**2
-        fk = self.k2 != 0.0
-
-        # ensemble variance proportional to the prescribed scalar wavenumber function
-        ck = np.zeros((self.nx, self.nk))
-        ck[fk] = (np.sqrt(self.k2[fk])*(1+(self.k2[fk]/36)**2))**(-1)
-        
-        # Gaussian random realization for each of the Fourier components of psi
-        psih = np.random.randn(self.nx, self.nk)*ck+\
-               1j*np.random.randn(self.nx, self.nk)*ck
-
-        # ṃake sure the stream function has zero mean
-        # psi = np.fft.irfft2(psih)
-        # psih = np.fft.rfft2(psi-psi.mean())
-        KEaux = self._spec_variance(self.fltr*np.sqrt(self.k2)*psih)
-        psi = psih/np.sqrt(KEaux)
-
-        # inverse Laplacian in k-space
-        wh = self.k2 * psi
-        
-        # vorticity in physical space
-        self.w[:,:] = np.fft.irfft2(wh)
-
-
+    
     
     def _init_filter(self):
         """
@@ -282,6 +236,17 @@ class Fluid(object):
         self.dt = np.sqrt(3.) / (Dc + Dmu)
 
 
+    def _init_forcing(self, f):
+        if callable(f):
+            self.func = f
+            self.forced = True
+
+
+    def _add_forcing(self):
+        self.f[:, :] = self.func(self.x, self.y)
+        self.f_to_fh()
+
+
     def update(self, s=3):
         """
         Hybrid implicit-explicit total variational diminishing Runge-Kutta 3rd-order 
@@ -292,7 +257,8 @@ class Fluid(object):
                 - desired order of the method, default is 3rd order
         """
         # iniitalise field
-        self.wh0[:, :] = self.wh[:, :]
+        if self.forced: self._add_forcing()
+        self.wh0[:, :] = self.wh[:, :] + self.fh[:, :]
 
         for k in range(s, 0, -1):
         # for t, v, d in zip([1.,.75,1./3.],[0.,.25,2./3.],[1.,.25,2./3.]):
@@ -366,19 +332,9 @@ class Fluid(object):
     def _add_spec_filter(self):
         self.dwhdt *= self.fltr
 
-    
-    def _spec_variance(self, ph):
-        # only half the spectrum for real ffts, needs spectral normalisation
-        var_dens = 2 * np.abs(ph)**2 / (self.nx*self.ny)**2
-        # only half of coefs [0] and [nx/2+1] due to symmetry in real fft2
-        var_dens[..., 0] /= 2.
-        var_dens[...,-1] /= 2.
-
-        return var_dens.sum(axis=(-2,-1))
-
 
     def tke(self):
-        ke = .5*self._spec_variance(np.sqrt(self.k2)*self.psih)
+        ke = .5*_spec_variance(np.sqrt(self.k2)*self.psih)
         return ke.sum()
 
 
@@ -448,7 +404,7 @@ class Fluid(object):
         plt.ion()
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        im = ax.imshow(self.w, norm=None, cmap="RdBu")
+        im = ax.imshow(np.fft.irfft2(self.wh, axes=(-2,-1)), norm=None, cmap="RdBu")
         cax = make_axes_locatable(ax).append_axes("right", size="5%", pad="2%")
         cb = fig.colorbar(im, cax=cax)
         ax.set_xticks([]); ax.set_yticks([])
@@ -456,7 +412,7 @@ class Fluid(object):
             #  update using RK
             self.update()
             if(self.it % every == 0):
-                im.set_data(self.w)
+                im.set_data(np.fft.irfft2(self.wh, axes=(-2,-1)))
                 fig.canvas.draw()
                 fig.canvas.flush_events()
                 plt.pause(1e-9)

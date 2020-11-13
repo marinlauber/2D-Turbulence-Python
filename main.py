@@ -10,26 +10,28 @@ __email__  = "M.Lauber@soton.ac.uk"
 import time as t
 import numpy as np
 from src.fluid import Fluid
+from src.field import TaylorGreen,ShearLayer,ConvectiveVortex,McWilliams
+
 
 if __name__=="__main__":
 
     # build fluid and solver
-    flow = Fluid(512, 512, 2000, pad=1.)
+    flow = Fluid(64, 64, 100, pad=1.)
     flow.init_solver()
-    flow.init_field("McWilliams")
-    
+    flow.init_field(field=McWilliams(flow.x, flow.y))
+
     print("Starting integrating on field.\n")
     start_time = t.time()
-    finish = 30.0
+    finish = 3.0
 
-    # loop to solve
-    while(flow.time<=finish):
-        flow.update()
-        if(flow.it % 3000 == 0):
-            print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f, ENS: %f" %(flow.it,
-                  flow.time, finish-flow.time, flow.tke(), flow.enstrophy()))
-            flow.write(folder="Dat/", iter=flow.it/3000)
-    # flow.run_live(finish, every=200)
+    # # loop to solve
+    # while(flow.time<=finish):
+    #     flow.update()
+    #     if(flow.it % 3000 == 0):
+    #         print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f, ENS: %f" %(flow.it,
+    #               flow.time, finish-flow.time, flow.tke(), flow.enstrophy()))
+    #         # flow.write(folder="Dat/", iter=flow.it/3000)
+    flow.run_live(finish, every=200)
 
     end_time = t.time()
-    print("\nExecution time for %d iterations is %f seconds." %(flow.it, end_time-start_time))
+    print("\nExecution time fsor %d iterations is %f seconds." %(flow.it, end_time-start_time))
