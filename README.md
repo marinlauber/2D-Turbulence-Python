@@ -1,9 +1,9 @@
 # Decaying Turbulence in Python (OOP)
 
 
-[![Build Status](https://travis-ci.org/marinlauber/OOpyPST.svg?branch=master)](https://travis-ci.org/marinlauber/OOpyPST)
+[![Build Status](https://travis-ci.org/marinlauber/2D-Turbulence-Python.svg?branch=master)](https://travis-ci.org/github/marinlauber/2D-Turbulence-Python)
 
-[![Coverage Status](https://coveralls.io/repos/github/marinlauber/OOpyPST/badge.svg?branch=master)](https://coveralls.io/github/marinlauber/OOpyPST?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/marinlauber/2D-Turbulence-Python/badge.svg?branch=master)](https://coveralls.io/github/marinlauber/2D-Turbulence-Python?branch=master)
 
 Pseudo-spectral collocation code for two-dimensional turbulence simulations written in object-oriented python.
 
