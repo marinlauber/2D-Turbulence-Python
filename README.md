@@ -66,23 +66,23 @@ Simulations are initialized by defining a grid, and specifying the Reynolds numb
 ```python
 flow = Fluid(nx=64, ny=64, Re=1)
 flow.init_solver()
-flow.init_field("Taylor-Green")
+flow.init_field(TaylorGreen)
 ```
-Here we have initialized the Taylor-Green vortex. The solver initiation generates all the working arrays and transforms the initial conditions. Simulations can also be initialized using results from previous runs (these need to have been saved with `flow.save_vort("PATH/", ID)`)
+Here we have initialized the Taylor-Green vortex. The solver initiation generates all the working arrays and transforms the initial conditions. Simulations can also be initialized using results from previous runs (these need to have been saved with `flow.write(folder='', 1)`)
 ```python
-q = np.genfromtxt("PATH/vort_ID.dat")
-flow.time = q[0, 0]
-flow.init_field(field=q[1:, :])
+from src.field import FromDat
+flow.init_field(FromDat, name="vort_000001.dat")
 ```
 here we reset the flow timer using the time value saved in the `vort_ID.dat` file. The `finish` time of the simulation must be adjusted accordingly, as well as the `ID` if the field is saved. This allows user-generated field to be used, within the limitations of the method (periodic boundary conditions). The main loop of the solver is called as
 ```python
 # loop to solve
 while(flow.time<=finish):
     flow.update()
-    if(flow.it % 500 == 0):
+    if(flow.it % 1000 == 0):
         print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f, ENS: %f" %(flow.it,
               flow.time, finish-flow.time, flow.tke(), flow.enstrophy()))
-```
+        flow.write(folder="Dat/", iter=flow.it/1000)
+``` 
 Small simulations can also be run live, which can also be handy for de-bugging
 ```python
 flow.run_live(finish, every=100)

@@ -9,14 +9,15 @@ __email__  = "M.Lauber@soton.ac.uk"
 
 import time as t
 import numpy as np
-from fluid import Fluid
+from src.fluid import Fluid
+from src.field import TaylorGreen,L2,Linf
 
 if __name__=="__main__":
 
     # build fluid and solver
     flow = Fluid(128, 128, 1.)
     flow.init_solver()
-    flow.init_field("Taylor-Green")
+    flow.init_field(TaylorGreen)
 
     print("Starting integration on field.\n")
     start_time = t.time()
@@ -38,13 +39,12 @@ if __name__=="__main__":
     print("\nExecution time for %d iterations is %f seconds." %(flow.it, end_time-start_time))
     
     # get final results
+    flow.wh_to_w()
     w_n = flow.w.copy()
 
     # exact solution
-    flow.init_field("Taylor-Green", t=flow.time)
+    w_e  = TaylorGreen(flow.x, flow.y,flow.Re, time=flow.time)
     
     # L2-norm and exit 
-    L2 = np.sqrt((flow.nx*flow.ny)**(-1)*np.einsum('ij->', (np.abs(flow.w - w_n))**2))
-    Linf = np.max(np.abs(flow.w - w_n))
-    print("The L2-norm of the Error in the Taylor-Green vortex on a %dx%d grid is %e." % (flow.nx, flow.ny, L2) )
-    print("The Linf-norm of the Error in the Taylor-Green vortex on a %dx%d grid is %e." % (flow.nx, flow.ny, Linf) )
+    print("The L2-norm of the Error in the Taylor-Green vortex on a %dx%d grid is %e." % (flow.nx, flow.ny, L2(w_e - w_n)) )
+    print("The Linf-norm of the Error in the Taylor-Green vortex on a %dx%d grid is %e." % (flow.nx, flow.ny, Linf(w_e - w_n)) )

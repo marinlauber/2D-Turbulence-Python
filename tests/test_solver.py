@@ -15,7 +15,7 @@ from src.field import TaylorGreen, ShearLayer, McWilliams
 def test_diagnostics():
     flow = Fluid(64, 64, 1.)
     flow.init_solver()
-    flow.init_field(field=McWilliams(flow.x, flow.y))
+    flow.init_field(McWilliams)
     flow._get_psih()
     assert np.isclose(np.round(flow.tke(),1), 0.5, atol=1e-3),\
            "Error: TKE do not match"
@@ -26,7 +26,7 @@ def test_diagnostics():
 def test_plots():
     flow = Fluid(16, 16, 1.)
     flow.init_solver()
-    flow.init_field(field=ShearLayer(flow.x, flow.y))
+    flow.init_field(ShearLayer)
     plt.ion()
     flow.plot_spec()
     plt.close()
@@ -40,7 +40,7 @@ def test_update():
     # build field
     flow = Fluid(32, 32, 1.)
     flow.init_solver()
-    flow.init_field(field=TaylorGreen(flow.x, flow.y, flow.Re))
+    flow.init_field(TaylorGreen)
     # start update
     while(flow.time<=0.1):
         flow.update()
@@ -48,7 +48,7 @@ def test_update():
     flow.wh_to_w()
     w_n = flow.w.copy()
     # exact solution
-    w_e  = TaylorGreen(flow.x, flow.y, flow.Re, flow.time)
+    w_e  = TaylorGreen(flow.x, flow.y,flow.Re, time=flow.time)
     assert np.allclose(w_n, w_e, atol=1e-6), "Error: solver diverged."
 
 

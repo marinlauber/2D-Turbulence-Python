@@ -162,22 +162,18 @@ class Fluid(object):
             self._init_filter()
     
 
-    def init_field(self, field):
+    def init_field(self, func, **kwargs):
         """
         Inital the vorticity field. 
 
             Params:
-                field : array
-                    - actuall field as a numpy array
+                field : a function that return the desired field
+                    prototype function is : f(x, y, Re, *kwargs)
         """
-        if(type(field)==np.ndarray):
-            if(field.shape==(self.nx, self.ny)):
-                self.w[:,:] = field
-            else:
-                print("Specified velocity field does not match grid initialized.")
-        # transform
+        if not callable(func):
+            raise "Error: func must be callable, prototype function is : f(x, y, Re, *kwargs)"
+        self.w[:,:] = func(self.x, self.y, self.Re, **kwargs)
         self.w_to_wh()
-
 
     # bit-aligned storage arrays for pyFFTW
     def _empty_real(self, *args): 

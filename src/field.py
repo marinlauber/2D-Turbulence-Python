@@ -1,6 +1,9 @@
 import numpy as np
 
 
+L2 = lambda v : np.sqrt(1./np.dot(*v.shape)*np.einsum('ij->', (np.abs(v))**2))
+Linf = lambda v : np.max(np.abs(v))
+
 def _spec_variance(ph):
         # only half the spectrum for real ffts, needs spectral normalisation
         nx, nk = ph.shape
@@ -19,13 +22,26 @@ def Curl(u, v, dx, dy):
     return curl
 
 
-def TaylorGreen(x, y, Re=1., t=0.0, kappa=2.):
+def FromDat(x, y, Re, **kwargs):
+    field = np.genfromtxt(kwargs.get('name', 1.))[1:,:]
+    if(type(field)==np.ndarray):
+        if(field.shape==(len(x), len(y))):
+            return field
+        else:
+            print("Specified velocity field does not match grid initialized.")
+            
+
+def TaylorGreen(x, y, Re, **kwargs):
+    kappa = kwargs.get('kappa', 1.)
+    t = kwargs.get('time', 0.)
     field = 2 * kappa * np.cos(kappa * x) * np.cos(kappa * y[:, np.newaxis]) *\
                     np.exp(-2 * kappa**2 * t / Re)
     return field
 
 
-def ShearLayer(x, y, delta=0.005, sigma= 15./np.pi):
+def ShearLayer(x, y, Re, **kwargs):
+    delta = kwargs.get('delta', 0.005)
+    sigma = kwargs.get('sigma', 15./np.pi)
     field = delta * np.cos(x) - sigma * np.cosh(sigma * (y[:,np.newaxis] -\
                                                 0.5*np.pi))**(-2)
     field+= delta * np.cos(x) + sigma * np.cosh(sigma * (1.5*np.pi -\
@@ -33,19 +49,26 @@ def ShearLayer(x, y, delta=0.005, sigma= 15./np.pi):
     return field
 
 
-def ConvectiveVortex(x, y, Uinf=1., beta=1./50., R=0.005*np.pi):
+def ConvectiveVortex(x, y, Re, **kwargs):
+    Uinf = kwargs.get('Uinf', 1.)
+    beta = kwargs.get('beta', 1./50.)
+    R = kwargs.get('R', 0.005*np.pi)
     dx=x[1]-x[0]; dy=y[1]-y[0]
-    # radial distamce to vortex core
-    r = np.sqrt((x-np.pi)**2+(y[:,np.newaxis]-np.pi)**2)
+    # radial distance to vortex core
+    rx = x - np.pi
+    ry = y[:,np.newaxis]-np.pi
+    r = np.sqrt(rx**2+ry**2)
 
     # init field
-    u = Uinf*(1-beta*(y[:,np.newaxis]-np.pi)/R*np.exp(-r**2/2))
-    v = Uinf*beta*(x-np.pi)/R*np.exp(-r**2/2)
-
+    # u = Uinf*(1-beta*(y[:,np.newaxis]-np.pi)/R*np.exp(-r**2/2))
+    # v = Uinf*beta*(x-np.pi)/R*np.exp(-r**2/2)
+    beta = 5.
+    u = Uinf-beta/(2*np.pi)*np.exp(0.5*(1-r**2))*ry
+    v = Uinf+beta/(2*np.pi)*np.exp(0.5*(1-r**2))*rx
     return Curl(u, v, dx, dy)
 
 
-def McWilliams(x, y):
+def McWilliams(x, y, Re, **kwargs):
     """
     Generates McWilliams vorticity field, see:
         McWilliams (1984), "The emergence of isolated coherent vortices in turbulent flow"
