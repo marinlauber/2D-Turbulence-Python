@@ -166,6 +166,6 @@ def DecayingTurbulence(x, y, Re, **kwargs):
     whatk = w_hat * PhaseFunction(kx, ky)
 
     # transforms initial field in physical space
-    w = np.fft.ifft2(whatk)
+    w = np.fft.ifft2(whatk) * nx * ny
 
     return np.real(w)
