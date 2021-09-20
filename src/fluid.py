@@ -127,7 +127,10 @@ class Fluid(object):
         self.b4 = self._empty_real((self.mx,self.my))
         
         # for fast transform
-        pyfftw.interfaces.cache.enable()
+        # pyfftw.interfaces.cache.enable()
+        pyfftw.config.NUM_THREADS = self.fftw_num_threads
+        pyfftw.config.PLANNER_EFFORT = 'FFTW_MEASURE'
+
         self.w_to_wh = pyfftw.FFTW(self.w,  self.wh, threads=self.fftw_num_threads,
                                    axes=(-2,-1))
         self.wh_to_w = pyfftw.FFTW(self.wh,  self.w, threads=self.fftw_num_threads,
@@ -368,7 +371,8 @@ class Fluid(object):
     def write(self, folder, iter):
         s = np.zeros(self.ny); s[0]=self.time; s[1]=self.dt
         s[2]=self.tke(); s[3]=self.enstrophy()
-        np.savetxt(str(folder)+"vort_"+str("%06d"%iter)+".dat", np.vstack((s, self.w)))
+        q = np.fft.irfft2(self.wh, axes=(-2,-1))
+        np.savetxt(str(folder)+"vort_"+str("%06d"%iter)+".dat", np.vstack((s, q)))
 
 
     def display(self, complex=False, u_e=None):
