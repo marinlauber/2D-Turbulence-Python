@@ -5,6 +5,8 @@
 
 [![Coverage Status](https://coveralls.io/repos/github/marinlauber/2D-Turbulence-Python/badge.svg?branch=master)](https://coveralls.io/github/marinlauber/2D-Turbulence-Python?branch=master)
 
+[![DOI](https://zenodo.org/badge/215633416.svg)](https://zenodo.org/badge/latestdoi/215633416)
+
 Pseudo-spectral collocation code for two-dimensional turbulence simulations written in object-oriented python.
 
 ## Getting Started
