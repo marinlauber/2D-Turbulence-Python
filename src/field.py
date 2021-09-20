@@ -1,19 +1,20 @@
 import numpy as np
+import math
 
 
 L2 = lambda v : np.sqrt(1./np.dot(*v.shape)*np.einsum('ij->', (np.abs(v))**2))
 Linf = lambda v : np.max(np.abs(v))
 
 def _spec_variance(ph):
-        # only half the spectrum for real ffts, needs spectral normalisation
-        nx, nk = ph.shape
-        ny = (nk-1)*2
-        var_dens = 2 * np.abs(ph)**2 / (nx*ny)**2
-        # only half of coefs [0] and [nx/2+1] due to symmetry in real fft2
-        var_dens[..., 0] /= 2.
-        var_dens[...,-1] /= 2.
+    # only half the spectrum for real ffts, needs spectral normalisation
+    nx, nk = ph.shape
+    ny = (nk-1)*2
+    var_dens = 2 * np.abs(ph)**2 / (nx*ny)**2
+    # only half of coefs [0] and [nx/2+1] due to symmetry in real fft2
+    var_dens[..., 0] /= 2.
+    var_dens[...,-1] /= 2.
 
-        return var_dens.sum(axis=(-2,-1))
+    return var_dens.sum(axis=(-2,-1))
 
 
 def Curl(u, v, dx, dy):
@@ -104,3 +105,67 @@ def McWilliams(x, y, Re, **kwargs):
     # vorticity in physical space
     field = np.fft.irfft2(wh)
     return field
+
+
+def EnergySpectrum(k, s=3, kp=12):
+
+    # normalise the spectrum
+    a_s = (2*s + 1)**(s + 1) / (2**s * math.factorial(s))
+
+    # compute sectrum at this wave number
+    E = a_s/ (2 * kp) * (k / kp)**(2*s + 1) * np.exp(-(s + 0.5) * (k / kp)**2)
+
+    return E
+
+
+def PhaseFunction(kx, ky):
+
+    # half the array size
+    lenx2 = len(kx)//2; leny2 = len(ky)//2
+
+    # define phase array
+    xi = np.zeros((len(kx), len(ky)))
+
+    # compute phase field in k space, need more points because of how 
+    # python organises wavenumbers
+    zeta = 2 * np.pi * np.random.rand(lenx2+1, leny2+1)
+    eta  = 2 * np.pi * np.random.rand(lenx2+1, leny2+1)
+
+    # quadrant \xi(kx,ky) = \zeta(kx,ky) + \eta(kx,ky)
+    xi[:lenx2, :leny2] = zeta[:-1,:-1] + eta[:-1,:-1]
+
+    # quadrant \xi(-kx,ky) = -\zeta(kx,ky) + \eta(kx,ky)
+    xi[lenx2:, :leny2] = np.flip(-zeta[1:,:-1] + eta[1:,:-1], 0)
+
+    # quadrant \xi(-kx,-ky) = -\zeta(kx,ky) - \eta(kx,ky)
+    xi[lenx2:, leny2:] = np.flip(-zeta[1:,1:] - eta[1:,1:])
+
+    # quadrant \xi(kx,-ky) = \zeta(kx,ky) - \eta(kx,ky)
+    xi[:lenx2, leny2:] = np.flip(zeta[:-1,1:] - eta[:-1,1:], 1)
+
+    return np.exp(1j * xi)
+
+
+def DecayingTurbulence(x, y, Re, **kwargs):
+    """
+    Generates random vorticity field, see:
+        Omer San, Anne E. Staples : High-order methods for decaying two-dimensional homogeneous isotropic turbulence
+    """
+    # Fourier mesh
+    nx = len(x); kx = np.fft.fftfreq(nx, d=1./nx)
+    ny = len(y); ky = np.fft.fftfreq(ny, d=1./ny)
+
+    # define 2D spectrum array
+    w_hat = np.empty((len(kx), len(ky)), dtype=np.complex128)
+
+    # compute vorticity field in k space
+    k = np.sqrt(kx**2 + ky[:, np.newaxis]**2)
+    w_hat = np.sqrt((k / np.pi) * EnergySpectrum(k))
+
+    # add random phase
+    whatk = w_hat * PhaseFunction(kx, ky)
+
+    # transforms initial field in physical space
+    w = np.fft.ifft2(whatk)
+
+    return np.real(w)
