@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Lauber"
+  given-names: "Marin"
+  orcid: "https://orcid.org/0000-0003-2191-9318"
+title: "2D-Turbulence-Python"
+version: 1.0
+doi: 10.5281/zenodo.5517704
+date-released: 2021-07-20
+url: "https://github.com/marinlauber/2D-Turbulence-Python"
