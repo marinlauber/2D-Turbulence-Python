@@ -83,7 +83,7 @@ while(flow.time<=finish):
     if(flow.it % 1000 == 0):
         print("Iteration \t %d, time \t %f, time remaining \t %f. TKE: %f, ENS: %f" %(flow.it,
               flow.time, finish-flow.time, flow.tke(), flow.enstrophy()))
-        flow.write(folder="Dat/", iter=flow.it/1000)
+        flow.write(file="fluid")
 ``` 
 Small simulations can also be run live, which can also be handy for de-bugging
 ```python
