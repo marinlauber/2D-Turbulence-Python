@@ -6,6 +6,7 @@ dependencies:
     - numpy
     - matplotlib
     - pytest
+    - netcdf4
     - pip
     - pip:
         - pyfftw

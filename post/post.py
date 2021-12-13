@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import os
 from math import ceil as ceil
+import netCDF4 as nc
 
 try:
     plt.style.use('mystyle')
@@ -38,7 +39,7 @@ def save_image(data, fn, cm="RdBu"):
     plt.close()
 
 
-def save_contour(data, fn, cm="RdBu"):
+def save_contour(data, fn, time, cm="RdBu"):
     plt.figure(figsize=(8,6))
     plt.contourf(np.linspace(0, 1, data.shape[0]), np.linspace(0, 1, data.shape[1]),
                  np.round(data, 5), cmap=cm,levels=51)
@@ -49,7 +50,7 @@ def save_contour(data, fn, cm="RdBu"):
     plt.close()
 
 
-def save_comp(w, fn, cm="PRGn", res=(1920,1080)):
+def save_comp(w, fn, time, cm="PRGn", res=(1920,1080)):
     nx = w.shape[0]; nk=w.shape[1]//2+1
     kx, kk = _wavenumber(nx, nk)
     wh = np.fft.rfft2(w, axes=(-2,-1))
@@ -145,33 +146,25 @@ def get_ens(wh, k2, res=256):
 if __name__=="__main__":
     
     print("Cleaning workspace..")
-    os.system("rm *.png vid.mp4")
+    os.system("rm -f *.png vid.mp4")
     print("Done.")
 
     print("Generating .png files and assembling movie...")
-    i = 194
+
+    # the resolution we want
     res=(2560,1440)
 
-    t=[]; dt=[]; tke=[]; ens=[]
+    # load the data
+    data = nc.Dataset("fluid.nc")
 
-    try:
-        cmap = cm.make_cmap('../SciVisColor/blue-5.xml')
-    except NameError:
-        cmap = "RdBu"
-
-    while(os.path.isfile("vort_"+"%06d"%(i+1)+".dat")):
-        w = np.genfromtxt("vort_"+"%06d"%(i+1)+".dat", delimiter=" ")
-        time = w[0,0]; t.append(time); 
-        dt.append(w[0,1]); tke.append(w[0,2]); ens.append(w[0,3])
-        w=np.round(w[1:,:],10)
-        save_comp(2*(-abs(w)/np.max(abs(w)))+1, "vort_"+"%06d"%(i+1)+".png", cm=cmap, res=res)
+    # save avery snapshot
+    for i in range(len(data["t"])):
+        w = data["w"][i,:,:]
+        save_comp(w, "vort_"+"%06d"%(i+1)+".png", time=data["t"][i], cm="RdBu", res=res)
         i += 1
 
+    # generate the movie
     os.system("ffmpeg -r 24 -i vort_%06d.png -s "+str(res[0])+"x"+str(res[1])+" -vcodec libx264 -crf 25 -pix_fmt yuv420p vid.mp4")
     os.system("rm *.png")
-
-    plot(t, dt, "dt")
-    plot(t, tke, "Tke")
-    plot(t, ens, "Enstrophy")
 
     print("Done.\nExiting.")

@@ -1,7 +1,6 @@
 import numpy as np
 import math
 
-
 L2 = lambda v : np.sqrt(1./np.dot(*v.shape)*np.einsum('ij->', (np.abs(v))**2))
 Linf = lambda v : np.max(np.abs(v))
 
@@ -166,6 +165,6 @@ def DecayingTurbulence(x, y, Re, **kwargs):
     whatk = w_hat * PhaseFunction(kx, ky)
 
     # transforms initial field in physical space
-    w = np.fft.ifft2(whatk)
+    w = np.fft.ifft2(whatk) * nx * ny
 
     return np.real(w)

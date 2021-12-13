@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pyfftw
 from src.field import _spec_variance
+from src.io import netCDFwriter
 
 class Fluid(object):
 
@@ -48,6 +49,9 @@ class Fluid(object):
         # we assume 2pi periodic domain in each dimensions
         self.x, self.dx = np.linspace(0, 2*np.pi, nx, endpoint=False, retstep=True)
         self.y, self.dy = np.linspace(0, 2*np.pi, ny, endpoint=False, retstep=True)
+
+        # do not write by default
+        self.write_enable = False
 
     
     def _wavenumber(self):
@@ -135,8 +139,6 @@ class Fluid(object):
                                    axes=(-2,-1))
         self.wh_to_w = pyfftw.FFTW(self.wh,  self.w, threads=self.fftw_num_threads,
                                    direction='FFTW_BACKWARD', axes=(-2,-1))
-        # self.dwhdt_to_dwdt = pyfftw.FFTW(self.dwhdt, self.dwdt, threads=self.fftw_num_threads,
-        #                                  direction='FFTW_BACKWARD', axes=(-2,-1))
         self.u_to_uh = pyfftw.FFTW(self.u,  self.uh, threads=self.fftw_num_threads,
                                    axes=(-2,-1))
         self.uh_to_u = pyfftw.FFTW(self.uh, self.u, threads=self.fftw_num_threads,
@@ -177,6 +179,7 @@ class Fluid(object):
             raise "Error: func must be callable, prototype function is : f(x, y, Re, *kwargs)"
         self.w[:,:] = func(self.x, self.y, self.Re, **kwargs)
         self.w_to_wh()
+
 
     # bit-aligned storage arrays for pyFFTW
     def _empty_real(self, *args): 
@@ -368,11 +371,14 @@ class Fluid(object):
         plt.show()
 
 
-    def write(self, folder, iter):
-        s = np.zeros(self.ny); s[0]=self.time; s[1]=self.dt
-        s[2]=self.tke(); s[3]=self.enstrophy()
-        q = np.fft.irfft2(self.wh, axes=(-2,-1))
-        np.savetxt(str(folder)+"vort_"+str("%06d"%iter)+".dat", np.vstack((s, q)))
+    def write(self, file):
+        if(not self.write_enable): self.init_writer(file)
+        self.writer.add(self)
+    
+
+    def init_writer(self, name):
+       self.writer = netCDFwriter(name, self)
+       self.write_enable = True
 
 
     def display(self, complex=False, u_e=None):
