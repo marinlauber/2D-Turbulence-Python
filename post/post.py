@@ -114,9 +114,9 @@ def get_psi(wh, k2):
     return psih
 
 
-def get_velocity(psih, kx, kk):
+def get_velocity(psih, kx, ky):
     uh =  1j*ky[:,np.newaxis]*psih
-    vh = -1j*kk*psih
+    vh = -1j*kx*psih
     return np.fft.irfft2(uh, axes=(-2,-1)), np.fft.irfft2(vh, axes=(-2,-1))
 
 
